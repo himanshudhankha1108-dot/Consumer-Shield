@@ -331,9 +331,13 @@ class CaseReportGenerator:
             else " Unilateral denial of zero-cost warranty remedy directly breaches this express contractual warranty."
         )
 
+        warranty_label = str(warranty_type).strip()
+        if not warranty_label.lower().endswith("warranty"):
+            warranty_label = f"{warranty_label} Warranty"
+
         statutory_grounds: List[str] = [
             f"  1. BREACH OF EXPRESS WARRANTY TERMS:\n"
-            f"     Under the {warranty_type} Warranty Terms, comprehensive warranty coverage mandates that operational failures "
+            f"     Under the {warranty_label} Terms, comprehensive warranty coverage mandates that operational failures "
             f"and component defects (including verified internal issues such as '{formal_defect}') occurring within the "
             f"{warranty_months}-month warranty period entitle the consumer to zero-cost repair or replacement by the "
             f"authorized service network.{repair_demand_text}"
