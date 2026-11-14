@@ -641,9 +641,14 @@ def analyze_case(case_id: str):
             sec_title = str(sec.get("section", "")).lower()
             src_title = str(sec.get("source_name", "")).lower()
             excerpt_txt = str(sec.get("excerpt", "")).lower()
-            # Strict Relevance Filter: Drop pre-dispatch, cancellation, and irrelevant product categories for delivered goods
+            # Strict Relevance Filter: Drop pre-dispatch, cancellation, and irrelevant product categories
+            # When defect occurs during the warranty term after the initial return window,
+            # drop 7-day platform return policies which weaken the warranty dispute
             if is_delivered_defect:
-                if any(k in sec_title or k in excerpt_txt for k in ["cancellation & pre-dispatch", "pre-dispatch", "fashion & lifestyle", "innerwear"]):
+                if any(k in sec_title or k in excerpt_txt for k in [
+                    "cancellation & pre-dispatch", "pre-dispatch", "fashion & lifestyle", "innerwear",
+                    "replacement window", "return window", "7 days from the confirmed date"
+                ]):
                     continue
             relevant_policies.append(
                 {

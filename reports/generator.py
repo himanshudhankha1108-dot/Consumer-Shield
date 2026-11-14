@@ -342,10 +342,10 @@ class CaseReportGenerator:
 
         statutory_grounds: List[str] = [
             f"  1. BREACH OF EXPRESS WARRANTY TERMS:\n"
-            f"     Under the {warranty_label} Terms, comprehensive warranty coverage mandates that operational failures "
-            f"and component defects (including verified internal issues such as '{formal_defect}') occurring within the "
-            f"{warranty_months}-month warranty period entitle the consumer to zero-cost repair or replacement by the "
-            f"authorized service network.{repair_demand_text}"
+            f"     The {warranty_label} Terms explicitly guarantee that the product shall remain free from defects in materials "
+            f"and workmanship under normal intended usage throughout the {warranty_months}-month warranty period, entitling the consumer "
+            f"to zero-cost repair or replacement. The confirmed technical failure ({formal_defect}) constitutes a latent manufacturing "
+            f"and hardware defect arising during regular operation.{repair_demand_text}"
         ]
 
         statutory_grounds.append(
@@ -372,8 +372,11 @@ class CaseReportGenerator:
                 excerpt = policy.get("excerpt", "").strip()
                 citation = policy.get("citation") or f"{src_name}, {sec_name}"
 
-                # Strict relevance filter against irrelevant policy topics
-                if any(irrel in citation.lower() or irrel in excerpt.lower() for irrel in ["cancellation & pre-dispatch", "pre-dispatch", "fashion & lifestyle", "innerwear"]):
+                # Strict relevance filter: Discard pre-dispatch, cancellation, and expired 7-day return policies for warranty disputes
+                if any(irrel in citation.lower() or irrel in excerpt.lower() for irrel in [
+                    "cancellation & pre-dispatch", "pre-dispatch", "fashion & lifestyle", "innerwear",
+                    "replacement window", "return window", "7-day", "7 days"
+                ]):
                     continue
 
                 if citation in rag_citations:
@@ -390,11 +393,34 @@ class CaseReportGenerator:
                 if not clean_excerpt.endswith("."):
                     clean_excerpt += "..."
 
+                # High linguistic variety and substantive legal analysis per provision (eliminates boilerplate loop)
+                sec_lower = sec_name.lower()
+                src_lower = src_name.lower()
+                if "product liability" in sec_lower or "84" in sec_lower or "statutory consumer rights" in sec_lower:
+                    concluding_analysis = (
+                        "This statutory principle places an affirmative legal duty on the manufacturer to remediate genuine latent "
+                        "defects without shifting commercial repair expenses onto the consumer."
+                    )
+                elif "ecommerce" in src_lower or "e-commerce" in src_lower:
+                    concluding_analysis = (
+                        "Under these statutory rules, e-commerce entities and merchants are obligated to ensure effective grievance "
+                        "redressal and warranty honor without arbitrary repudiation."
+                    )
+                elif "standard warranty" in src_lower or "guidelines" in src_lower:
+                    concluding_analysis = (
+                        "These industry standards establish that repeat failures or unproven customer-fault assertions during the "
+                        "warranty term mandate immediate zero-cost repair, replacement, or full commercial refund."
+                    )
+                else:
+                    concluding_analysis = (
+                        f"Accordingly, the refusal to honor contractual coverage constitutes an actionable breach under {citation}."
+                    )
+
                 label = "STATUTORY MANDATE" if "act" in src_name.lower() or "section" in sec_name.lower() else "BENCHMARK INDUSTRY COMPLIANCE STANDARD"
                 statutory_grounds.append(
                     f"  {idx}. {label} ({citation}):\n"
                     f"     \"{clean_excerpt}\"\n"
-                    f"     Under this governing provision, the seller and manufacturer must provide prompt redressal without causing financial prejudice or imposing unauthorized repair burdens on the consumer."
+                    f"     {concluding_analysis}"
                 )
                 idx += 1
                 if idx > 5:
