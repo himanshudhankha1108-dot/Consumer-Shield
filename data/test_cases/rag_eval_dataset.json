@@ -1,0 +1,62 @@
+[
+  {
+    "query_id": "Q01",
+    "query": "definition of defect and imperfect standard in electronics laptop screen",
+    "relevant_parent_ids": ["consumer_protection_act_2019_section_2_12"],
+    "expected_citation": "Consumer Protection Act, 2019, Section 2(12)"
+  },
+  {
+    "query_id": "Q02",
+    "query": "two year limitation period to file complaint in district consumer forum",
+    "relevant_parent_ids": ["consumer_protection_act_2019_section_69"],
+    "expected_citation": "Consumer Protection Act, 2019, Section 69"
+  },
+  {
+    "query_id": "Q03",
+    "query": "manufacturer product liability for manufacturing defect and express warranty breach",
+    "relevant_parent_ids": ["consumer_protection_act_2019_section_84"],
+    "expected_citation": "Consumer Protection Act, 2019, Section 84"
+  },
+  {
+    "query_id": "Q04",
+    "query": "marketplace seller refusing refund or replacement for defective goods delivered late",
+    "relevant_parent_ids": ["consumer_protection_e_commerce_rules_202_rule_6"],
+    "expected_citation": "Consumer Protection (E-Commerce) Rules, 2020, Rule 6"
+  },
+  {
+    "query_id": "Q05",
+    "query": "mandatory 48 hour acknowledgment and one month grievance redressal for ecommerce entity",
+    "relevant_parent_ids": ["consumer_protection_e_commerce_rules_202_rule_4"],
+    "expected_citation": "Consumer Protection (E-Commerce) Rules, 2020, Rule 4"
+  },
+  {
+    "query_id": "Q06",
+    "query": "unfair trade practice refusing cash memo or receipt or refusing return within thirty days",
+    "relevant_parent_ids": ["consumer_protection_act_2019_section_2_47"],
+    "expected_citation": "Consumer Protection Act, 2019, Section 2(47)"
+  },
+  {
+    "query_id": "Q07",
+    "query": "liquid damage and accidental physical damage exclusions under standard manufacturer warranty terms",
+    "relevant_parent_ids": ["standard_warranty_rights_manufacturer_gu_p2"],
+    "expected_citation": "Standard Warranty Rights & Manufacturer Guidelines, 2. Standard Exclusions & Voiding Conditions"
+  },
+  {
+    "query_id": "Q08",
+    "query": "pecuniary jurisdiction of district commission up to fifty lakh rupees for consumer disputes",
+    "relevant_parent_ids": ["consumer_protection_act_2019_section_34"],
+    "expected_citation": "Consumer Protection Act, 2019, Section 34"
+  },
+  {
+    "query_id": "Q09",
+    "query": "replacement window 7 days for mobile phones laptops electronics online purchase and full refund if out of stock",
+    "relevant_parent_ids": ["general_e_commerce_return_refund_benchma_p1"],
+    "expected_citation": "General E-Commerce Return & Refund Benchmark Policies, 1. Electronics & Consumer Durables"
+  },
+  {
+    "query_id": "Q10",
+    "query": "deficiency in service by product service provider faulty repair negligence or withholding information",
+    "relevant_parent_ids": ["consumer_protection_act_2019_section_86"],
+    "expected_citation": "Consumer Protection Act, 2019, Section 86"
+  }
+]

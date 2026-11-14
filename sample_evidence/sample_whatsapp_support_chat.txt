@@ -1,0 +1,5 @@
+[18/02/2026, 11:20:14] Rahul Sharma: Hello, I bought a Samsung 43 inch 4K TV on 1st Feb from Amazon. Today morning horizontal vertical green and black lines appeared on the display panel.
+[18/02/2026, 11:22:05] Amazon Support: Hello Rahul. We regret the inconvenience. Since the item was delivered on 04 Feb 2026, the 7-day replacement window ended on 11 Feb 2026.
+[18/02/2026, 11:23:40] Rahul Sharma: But the TV is only 2 weeks old! It is under 1-year brand manufacturer warranty. The sound works but screen display is distorted without any physical damage.
+[18/02/2026, 11:25:10] Amazon Support: We understand. Please reach out to Samsung authorized service center. They will send an engineer to inspect the panel and arrange warranty service.
+[18/02/2026, 11:26:00] Rahul Sharma: Okay, please log this ticket reference #AMZ-IN-889123.

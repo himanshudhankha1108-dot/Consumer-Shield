@@ -1,0 +1,177 @@
+[
+  {
+    "case_id": "TC-001",
+    "scenario": "Valid warranty claim with complete evidence (Headphones)",
+    "dispute_type": "defective_product",
+    "facts": {
+      "product_name": "Sony WH-1000XM4 Wireless Headphones",
+      "seller_name": "Appario Retail Pvt Ltd",
+      "purchase_date": "2026-01-10",
+      "warranty_period_months": 12,
+      "defect_date": "2026-02-15",
+      "complaint_date": "2026-02-18",
+      "seller_response": "Claim rejected citing customer wear"
+    },
+    "uploaded_doc_types": ["invoice", "warranty_card", "defect_photo", "email", "job_sheet"],
+    "expected": {
+      "is_within_warranty": true,
+      "min_evidence_score": 90,
+      "conflicts_count": 0,
+      "missing_required_count": 0
+    }
+  },
+  {
+    "case_id": "TC-002",
+    "scenario": "Expired warranty coverage (Lapsed by 10 days)",
+    "dispute_type": "defective_product",
+    "facts": {
+      "product_name": "Mi Smart LED TV 43 Inch",
+      "seller_name": "Xiaomi Official Store",
+      "purchase_date": "2025-01-10",
+      "warranty_period_months": 12,
+      "defect_date": "2026-01-20",
+      "complaint_date": "2026-01-22"
+    },
+    "uploaded_doc_types": ["invoice", "warranty_card", "defect_photo"],
+    "expected": {
+      "is_within_warranty": false,
+      "warranty_rule_status": "EVALUATED"
+    }
+  },
+  {
+    "case_id": "TC-003",
+    "scenario": "Missing critical purchase date in extracted facts",
+    "dispute_type": "defective_product",
+    "facts": {
+      "product_name": "Philips Air Fryer",
+      "warranty_period_months": 24,
+      "defect_date": "2026-02-10"
+    },
+    "uploaded_doc_types": ["warranty_card"],
+    "expected": {
+      "warranty_rule_status": "FAILED_PRECONDITION",
+      "rule_message": "Missing Purchase Date"
+    }
+  },
+  {
+    "case_id": "TC-004",
+    "scenario": "Deliberately conflicting purchase dates (Invoice vs Email)",
+    "dispute_type": "defective_product",
+    "facts_stream": [
+      {
+        "field_name": "purchase_date",
+        "value": "2026-01-10",
+        "source": "invoice",
+        "file": "Flipkart_Invoice.pdf"
+      },
+      {
+        "field_name": "purchase_date",
+        "value": "2026-01-18",
+        "source": "email",
+        "file": "Customer_Complaint.eml"
+      }
+    ],
+    "expected": {
+      "conflicts_detected": 1,
+      "conflicted_field": "purchase_date"
+    }
+  },
+  {
+    "case_id": "TC-005",
+    "scenario": "Missing product defect photograph / video proof",
+    "dispute_type": "defective_product",
+    "facts": {
+      "product_name": "Samsung Galaxy Tab S9",
+      "purchase_date": "2026-01-05",
+      "warranty_period_months": 12,
+      "defect_date": "2026-02-01"
+    },
+    "uploaded_doc_types": ["invoice", "warranty_card"],
+    "expected": {
+      "missing_defect_photo": true,
+      "score_penalty": 20
+    }
+  },
+  {
+    "case_id": "TC-006",
+    "scenario": "Non-delivery dispute with complete tracking proof",
+    "dispute_type": "non_delivery",
+    "facts": {
+      "product_name": "Ergonomic Office Chair",
+      "seller_name": "Green Soul Store",
+      "purchase_date": "2026-01-15",
+      "complaint_date": "2026-01-28",
+      "seller_response": "Courier marked delivered but customer did not receive OTP"
+    },
+    "uploaded_doc_types": ["invoice", "email"],
+    "expected": {
+      "dispute_category": "non_delivery",
+      "recommendation_contains": "courier delivery confirmation or OTP log"
+    }
+  },
+  {
+    "case_id": "TC-007",
+    "scenario": "Wrong product delivered with unboxing photo evidence",
+    "dispute_type": "wrong_product",
+    "facts": {
+      "product_name": "Nike Air Zoom Running Shoes Size 9",
+      "purchase_date": "2026-02-01",
+      "delivery_date": "2026-02-04",
+      "defect_date": "2026-02-04",
+      "defect_description": "Received generic unbranded shoes instead of Nike"
+    },
+    "uploaded_doc_types": ["invoice", "defect_photo", "email"],
+    "expected": {
+      "is_within_return_window": true
+    }
+  },
+  {
+    "case_id": "TC-008",
+    "scenario": "Denied refund within 7-day statutory return window",
+    "dispute_type": "denied_refund",
+    "facts": {
+      "product_name": "Instant Electric Kettle",
+      "delivery_date": "2026-02-10",
+      "complaint_date": "2026-02-14",
+      "seller_response": "Refund refused citing non-returnable policy"
+    },
+    "uploaded_doc_types": ["invoice", "email"],
+    "expected": {
+      "is_within_return_window": true,
+      "days_elapsed": 4
+    }
+  },
+  {
+    "case_id": "TC-009",
+    "scenario": "Refund request raised outside 7-day return window",
+    "dispute_type": "denied_refund",
+    "facts": {
+      "product_name": "Smart Watch Fitness Tracker",
+      "delivery_date": "2026-01-10",
+      "complaint_date": "2026-01-25",
+      "seller_response": "Return window of 7 days has expired"
+    },
+    "uploaded_doc_types": ["invoice", "email"],
+    "expected": {
+      "is_within_return_window": false,
+      "days_elapsed": 15
+    }
+  },
+  {
+    "case_id": "TC-010",
+    "scenario": "Service deficiency with incomplete inspection report",
+    "dispute_type": "service_deficiency",
+    "facts": {
+      "product_name": "Voltas Split Inverter AC 1.5 Ton",
+      "purchase_date": "2025-05-10",
+      "warranty_period_months": 24,
+      "defect_date": "2026-02-01",
+      "complaint_date": "2026-02-02"
+    },
+    "uploaded_doc_types": ["invoice", "warranty_card"],
+    "expected": {
+      "missing_job_sheet": true,
+      "requires_technician_inspection": true
+    }
+  }
+]

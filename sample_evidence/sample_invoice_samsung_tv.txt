@@ -1,0 +1,30 @@
+TAX INVOICE / CASH MEMO
+--------------------------------------------------------------------------------
+RETAILER: Cloudtail India Pvt Ltd
+GSTIN: 29AABCU9603R1ZM
+CIN: U51909KA2014PTC076123
+Platform: Amazon India (Order ID: 404-9872145-1234567)
+
+SOLD TO:
+Customer: Rahul Sharma
+Address: Flat 402, Green Glen Layout, Bellandur, Bengaluru, KA 560103
+
+TRANSACTION DETAILS:
+Invoice Number: INV-BLR-2026-88912
+Invoice Date: 2026-02-01
+Delivery Date: 2026-02-04
+
+ITEMS PURCHASED:
+1. Samsung Crystal 4K Vivid Pro Ultra HD Smart TV (43 Inch)
+   Model: UA43CUE60AKLXL
+   Serial No: SM-TV-43-98213-X
+   HSN Code: 852872
+   Quantity: 1
+   Unit Price: INR 28,990.00
+   Tax (IGST 18%): INR 5,218.20
+   Total Paid: INR 34,208.20
+
+Payment Mode: Pre-paid (UPI/HDFC NetBanking)
+Authorized Signatory: Cloudtail India Pvt Ltd
+--------------------------------------------------------------------------------
+Warranty: Covered under 1-Year Comprehensive Manufacturer Warranty as per Samsung India terms.

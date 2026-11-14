@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ConsumerShield 2.0 — Evidence Intelligence Platform</title>
+  
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['"Plus Jakarta Sans"', 'sans-serif'],
+            display: ['Outfit', 'sans-serif'],
+          },
+          colors: {
+            brand: {
+              cyan: '#06B6D4',
+              violet: '#6366F1',
+              emerald: '#10B981',
+              rose: '#F43F5E',
+              amber: '#F59E0B',
+              dark: '#080C16',
+              card: 'rgba(15, 23, 42, 0.65)',
+            }
+          }
+        }
+      }
+    }
+  </script>
+  
+  <!-- Lucide Icons -->
+  <script src="https://unpkg.com/lucide@latest"></script>
+  
+  <!-- Custom 3D & Glassmorphic CSS -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="bg-[#070B14] text-slate-100 min-h-screen font-sans antialiased overflow-x-hidden selection:bg-cyan-500/30 selection:text-cyan-300">
+
+  <!-- Ambient 3D Glowing Orbs Background -->
+  <div class="fixed inset-0 pointer-events-none z-0 overflow-hidden">
+    <div class="glow-orb orb-1"></div>
+    <div class="glow-orb orb-2"></div>
+    <div class="glow-orb orb-3"></div>
+    <div class="grid-overlay"></div>
+  </div>
+
+  <!-- Main Container -->
+  <div class="relative z-10 flex flex-col min-h-screen">
+
+    <!-- Top Navigation Bar -->
+    <header class="sticky top-0 z-50 backdrop-blur-xl bg-[#080C16]/80 border-b border-white/[0.08] px-4 lg:px-8 py-3.5 transition-all">
+      <div class="max-w-7xl mx-auto flex items-center justify-between gap-4">
+        
+        <!-- Logo & Title -->
+        <div class="flex items-center gap-3">
+          <div class="relative flex items-center justify-center w-11 h-11 rounded-2xl bg-gradient-to-tr from-cyan-500 via-indigo-500 to-purple-600 p-[1.5px] shadow-lg shadow-cyan-500/20">
+            <div class="w-full h-full bg-[#080C16] rounded-2xl flex items-center justify-center backdrop-blur-md">
+              <i data-lucide="shield-check" class="w-6 h-6 text-cyan-400"></i>
+            </div>
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="font-display font-extrabold text-xl lg:text-2xl tracking-tight bg-gradient-to-r from-white via-slate-200 to-cyan-300 bg-clip-text text-transparent">
+                ConsumerShield
+              </h1>
+              <span class="px-2 py-0.5 text-[11px] font-semibold tracking-wider uppercase rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/25">2.0</span>
+            </div>
+            <p class="text-xs text-slate-400 hidden sm:block">AI-Powered Consumer Evidence Intelligence & Case-Readiness</p>
+          </div>
+        </div>
+
+        <!-- Case Status & Action Controls -->
+        <div class="flex items-center gap-2.5 sm:gap-3">
+          <div class="hidden md:flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-xs">
+            <span class="relative flex h-2 w-2">
+              <span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span class="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span class="text-slate-400">Case ID:</span>
+            <span id="case-id-badge" class="font-mono text-cyan-300 font-semibold">CS-2026-X4</span>
+          </div>
+
+          <!-- Case Switcher Dropdown & Blank Case Button -->
+          <select id="case-switcher-select" class="btn-glass px-2.5 sm:px-3.5 py-2 rounded-xl text-xs sm:text-sm font-semibold text-cyan-300 bg-[#080C16] border border-cyan-500/30 focus:outline-none cursor-pointer">
+            <option value="boat">🎧 boAt Rockerz (Headphones)</option>
+            <option value="samsung">📺 Samsung 4K TV (Display Defect)</option>
+            <option value="nike">👟 Nike Air Zoom (Wrong Product)</option>
+            <option value="blank">➕ Start New Blank Case</option>
+          </select>
+
+          <button id="btn-reset-blank" class="btn-glass flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold text-rose-300 hover:text-white transition" title="Start a fresh empty case">
+            <i data-lucide="plus-circle" class="w-4 h-4 text-rose-400"></i>
+            <span class="hidden sm:inline">New Blank Case</span>
+          </button>
+
+          <button id="btn-run-analysis" class="btn-gradient flex items-center gap-2 px-4 py-2 rounded-xl text-xs sm:text-sm font-bold text-white shadow-lg shadow-indigo-500/25 transition-all">
+            <i data-lucide="scale" class="w-4 h-4"></i>
+            <span>Analyze Case</span>
+          </button>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 lg:px-8 py-6 space-y-6">
+
+      <!-- Case Overview Bar & Stats -->
+      <section class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        
+        <!-- Stat Card 1 -->
+        <div class="glass-card card-3d p-4 rounded-2xl flex items-center gap-4">
+          <div class="p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+            <i data-lucide="package" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Product In Question</div>
+            <div id="stat-product" class="text-base font-bold text-white truncate max-w-[170px]">Boat Rockerz 450</div>
+            <div id="stat-seller" class="text-xs text-slate-400">RetailNet (Flipkart)</div>
+          </div>
+        </div>
+
+        <!-- Stat Card 2 -->
+        <div class="glass-card card-3d p-4 rounded-2xl flex items-center gap-4">
+          <div class="p-3 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+            <i data-lucide="calendar" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Purchase & Warranty</div>
+            <div id="stat-dates" class="text-base font-bold text-white">10 Jan 2026</div>
+            <div id="stat-warranty" class="text-xs text-emerald-400 font-medium">12 Months (Within Window)</div>
+          </div>
+        </div>
+
+        <!-- Stat Card 3 -->
+        <div class="glass-card card-3d p-4 rounded-2xl flex items-center gap-4">
+          <div class="p-3 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400">
+            <i data-lucide="files" class="w-6 h-6"></i>
+          </div>
+          <div>
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Evidence Artifacts</div>
+            <div id="stat-files-count" class="text-base font-bold text-white">4 Documents</div>
+            <div class="text-xs text-amber-400 font-medium">1 Missing Evidence Item</div>
+          </div>
+        </div>
+
+        <!-- Stat Card 4 (Gauge Mini) -->
+        <div class="glass-card card-3d p-4 rounded-2xl flex items-center justify-between">
+          <div>
+            <div class="text-xs font-medium text-slate-400 uppercase tracking-wider">Readiness Index</div>
+            <div id="stat-score-text" class="text-2xl font-black text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">75 / 100</div>
+            <div class="text-[11px] text-slate-400">Evidence Completeness</div>
+          </div>
+          <div class="relative w-14 h-14 flex items-center justify-center">
+            <svg class="w-14 h-14 transform -rotate-90">
+              <circle cx="28" cy="28" r="23" stroke="currentColor" stroke-width="5" class="text-slate-800" fill="transparent"/>
+              <circle id="mini-gauge-circle" cx="28" cy="28" r="23" stroke="currentColor" stroke-width="5" class="text-emerald-400 transition-all duration-1000" fill="transparent" stroke-dasharray="144.5" stroke-dashoffset="36.1" stroke-linecap="round"/>
+            </svg>
+            <span id="mini-gauge-pct" class="absolute text-xs font-extrabold text-white">75%</span>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Interactive 3D Glass Tab Bar -->
+      <nav class="flex items-center gap-2 p-1.5 rounded-2xl bg-white/[0.03] border border-white/[0.08] backdrop-blur-xl overflow-x-auto no-scrollbar">
+        <button class="tab-btn active flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap" data-tab="tab-facts">
+          <i data-lucide="database" class="w-4 h-4"></i>
+          <span>Fact Ledger & Conflicts</span>
+          <span id="conflict-badge" class="ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30">1 Conflict</span>
+        </button>
+
+        <button class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-all whitespace-nowrap" data-tab="tab-timeline">
+          <i data-lucide="git-commit" class="w-4 h-4"></i>
+          <span>Case Timeline</span>
+        </button>
+
+        <button class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-all whitespace-nowrap" data-tab="tab-gap">
+          <i data-lucide="search-check" class="w-4 h-4"></i>
+          <span>Gap Analysis</span>
+        </button>
+
+        <button class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-all whitespace-nowrap" data-tab="tab-rules">
+          <i data-lucide="cpu" class="w-4 h-4"></i>
+          <span>Rules & Policy RAG</span>
+        </button>
+
+        <button class="tab-btn flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs sm:text-sm font-semibold text-slate-400 hover:text-white transition-all whitespace-nowrap" data-tab="tab-dossier">
+          <i data-lucide="file-text" class="w-4 h-4"></i>
+          <span>Case Dossier & Letter</span>
+        </button>
+      </nav>
+
+      <!-- TAB CONTENT CONTAINERS -->
+
+      <!-- TAB 1: FACT LEDGER & CONFLICTS -->
+      <section id="tab-facts" class="tab-pane space-y-6 block">
+
+        <!-- Conflict Resolution Glass Banner -->
+        <div id="conflict-banner-container">
+          <div class="relative overflow-hidden p-5 rounded-2xl bg-gradient-to-r from-rose-950/40 via-red-950/20 to-transparent border border-rose-500/30 backdrop-blur-xl">
+            <div class="absolute -top-12 -right-12 w-44 h-44 bg-rose-500/10 rounded-full blur-3xl pointer-events-none"></div>
+            
+            <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+              <div class="flex items-start gap-3.5">
+                <div class="p-2.5 rounded-xl bg-rose-500/20 border border-rose-500/30 text-rose-400 shrink-0">
+                  <i data-lucide="alert-triangle" class="w-6 h-6 animate-pulse"></i>
+                </div>
+                <div>
+                  <h3 class="font-display font-bold text-base text-rose-200">Factual Inconsistency Flagged</h3>
+                  <p class="text-xs sm:text-sm text-slate-300 mt-0.5">
+                    Different source documents present conflicting values for <code class="px-1.5 py-0.5 rounded bg-black/40 text-cyan-300 font-mono text-xs">purchase_date</code>.
+                  </p>
+                </div>
+              </div>
+
+              <!-- Inline Quick Conflict Resolver -->
+              <div class="flex flex-wrap items-center gap-3 w-full lg:w-auto bg-black/30 p-2.5 rounded-xl border border-white/[0.06]">
+                <div class="text-xs text-slate-400 font-medium">Select Verified Value:</div>
+                <label class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] cursor-pointer text-xs transition">
+                  <input type="radio" name="resolve-date" value="2026-01-10" checked class="text-cyan-500 focus:ring-0">
+                  <span class="font-mono text-white font-bold">10 Jan 2026</span>
+                  <span class="text-[10px] text-cyan-400 bg-cyan-950/80 px-1 rounded">Invoice (99%)</span>
+                </label>
+                <label class="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-white/[0.05] hover:bg-white/[0.1] cursor-pointer text-xs transition">
+                  <input type="radio" name="resolve-date" value="2026-01-14" class="text-cyan-500 focus:ring-0">
+                  <span class="font-mono text-white font-bold">14 Jan 2026</span>
+                  <span class="text-[10px] text-slate-400 bg-slate-800 px-1 rounded">Email (82%)</span>
+                </label>
+                <button id="btn-resolve-conflict" class="px-3.5 py-1.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold text-xs transition">
+                  Confirm Fact
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Facts Data Table / Cards -->
+        <div class="glass-card rounded-2xl overflow-hidden border border-white/[0.08]">
+          <div class="p-5 border-b border-white/[0.06] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <div class="flex flex-wrap items-center gap-3">
+                <h2 class="font-display font-bold text-lg text-white">Canonical Fact Ledger</h2>
+                <div class="inline-flex rounded-lg bg-white/[0.04] p-0.5 border border-white/[0.08] text-xs">
+                  <button id="btn-view-canonical" onclick="setFactsViewMode('canonical')" class="px-2.5 py-1 rounded-md font-medium transition bg-cyan-500/20 text-cyan-300 border border-cyan-500/30">
+                    Canonical View
+                  </button>
+                  <button id="btn-view-audit" onclick="setFactsViewMode('audit')" class="px-2.5 py-1 rounded-md font-medium transition text-slate-400 hover:text-white">
+                    Audit Trail (All Sources)
+                  </button>
+                </div>
+              </div>
+              <p id="facts-view-description" class="text-xs text-slate-400 mt-1">
+                Showing consolidated verified parameters. Multi-source extractions are corroborated into single canonical facts.
+              </p>
+            </div>
+            <span id="facts-count-badge" class="text-xs text-slate-400 font-mono bg-white/[0.04] px-3 py-1 rounded-full border border-white/[0.06]">0 Facts Logged</span>
+          </div>
+
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="text-xs uppercase tracking-wider text-slate-400 bg-white/[0.02] border-b border-white/[0.06]">
+                <tr id="facts-table-header">
+                  <th class="py-3 px-5">Field Name</th>
+                  <th class="py-3 px-5" id="th-value">Canonical Resolved Value</th>
+                  <th class="py-3 px-5" id="th-source">Corroborating Provenance</th>
+                  <th class="py-3 px-5">Confidence</th>
+                  <th class="py-3 px-5 text-right">Status</th>
+                </tr>
+              </thead>
+              <tbody id="facts-table-body" class="divide-y divide-white/[0.04]">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Uploaded Evidence Files List (With Delete Buttons) -->
+        <div id="uploaded-files-container" class="hidden mb-4 p-4 rounded-2xl glass-card border border-white/[0.08]">
+          <div class="flex items-center justify-between mb-3 text-xs text-slate-400">
+            <span class="font-bold text-slate-200 flex items-center gap-2">
+              <i data-lucide="files" class="w-4 h-4 text-cyan-400"></i>
+              Uploaded Evidence Artifacts
+            </span>
+            <span id="uploaded-files-count" class="font-mono text-cyan-300">0 Files</span>
+          </div>
+          <div id="uploaded-files-chips" class="flex flex-wrap gap-2"></div>
+        </div>
+
+        <!-- Upload New Evidence Dropzone -->
+        <div id="upload-dropzone" class="glass-card p-6 rounded-2xl border-2 border-dashed border-white/[0.1] hover:border-cyan-500/40 transition text-center cursor-pointer group">
+          <input type="file" id="evidence-file-input" class="hidden" multiple accept=".pdf,.png,.jpg,.jpeg,.txt">
+          <div class="flex flex-col items-center gap-2" onclick="document.getElementById('evidence-file-input').click()">
+            <div class="w-12 h-12 rounded-2xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400 flex items-center justify-center group-hover:scale-110 transition duration-300">
+              <i data-lucide="upload-cloud" class="w-6 h-6"></i>
+            </div>
+            <h4 class="font-display font-semibold text-sm text-slate-200">Click to Select or Drag & Drop Any Document (.txt, .pdf, images)</h4>
+            <p class="text-xs text-slate-400 max-w-md">Select files from <code class="text-cyan-300">sample_evidence/</code> or drop your own text invoices, warranty receipts, and chat exports.</p>
+          </div>
+          <div id="upload-status" class="hidden mt-3 p-3 rounded-xl bg-cyan-500/10 border border-cyan-500/25 text-xs text-cyan-300 text-center"></div>
+        </div>
+
+      </section>
+
+      <!-- TAB 2: TIMELINE -->
+      <section id="tab-timeline" class="tab-pane space-y-6 hidden">
+        <div class="glass-card p-6 rounded-2xl">
+          <div class="flex items-center justify-between mb-6">
+            <div>
+              <h2 class="font-display font-bold text-lg text-white">Reconstructed Event Chronology</h2>
+              <p class="text-xs text-slate-400">Directed chronological graph showing sequence from purchase to rejection</p>
+            </div>
+            <div class="flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold">
+              <i data-lucide="check-circle-2" class="w-3.5 h-3.5"></i>
+              <span>0 Chronological Contradictions</span>
+            </div>
+          </div>
+
+          <div id="timeline-container" class="relative pl-6 space-y-8 before:absolute before:left-2.5 before:top-3 before:bottom-3 before:w-0.5 before:bg-gradient-to-b before:from-cyan-500 before:via-indigo-500 before:to-rose-500">
+            <!-- Injected via JavaScript -->
+          </div>
+        </div>
+      </section>
+
+      <!-- TAB 3: GAP ANALYSIS -->
+      <section id="tab-gap" class="tab-pane space-y-6 hidden">
+        
+        <!-- Scorecard & Dimension Breakdown -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          
+          <!-- Radial Progress Gauge Card -->
+          <div class="glass-card p-6 rounded-2xl flex flex-col items-center justify-center text-center">
+            <h3 class="font-display font-bold text-base text-slate-300 mb-1">Evidence Completeness Score</h3>
+            <p class="text-xs text-slate-400 mb-6">Mathematical audit based on dispute category checklist</p>
+
+            <div class="relative w-44 h-44 flex items-center justify-center my-2">
+              <svg class="w-44 h-44 transform -rotate-90">
+                <circle cx="88" cy="88" r="74" stroke="currentColor" stroke-width="12" class="text-slate-800/80" fill="transparent"/>
+                <circle id="main-gauge-circle" cx="88" cy="88" r="74" stroke="url(#gauge-gradient)" stroke-width="12" class="transition-all duration-1000" fill="transparent" stroke-dasharray="465" stroke-dashoffset="116" stroke-linecap="round"/>
+                <defs>
+                  <linearGradient id="gauge-gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                    <stop offset="0%" stop-color="#06B6D4" />
+                    <stop offset="50%" stop-color="#6366F1" />
+                    <stop offset="100%" stop-color="#10B981" />
+                  </linearGradient>
+                </defs>
+              </svg>
+              <div class="absolute flex flex-col items-center justify-center">
+                <span id="main-gauge-score" class="font-display font-black text-4xl text-white">75</span>
+                <span class="text-xs uppercase tracking-wider text-slate-400 font-bold">Out of 100</span>
+              </div>
+            </div>
+
+            <p class="text-xs text-slate-400 mt-4 px-4">
+              <span class="text-cyan-400 font-semibold">Ready for Grievance Filing:</span> Upload missing defect photo to achieve 95%+ readiness.
+            </p>
+          </div>
+
+          <!-- Dimension Weights Cards -->
+          <div class="lg:col-span-2 space-y-3" id="dimensions-container">
+            <!-- Injected via JavaScript -->
+          </div>
+
+        </div>
+
+        <!-- Evidence Checklist Presence Matrix -->
+        <div class="glass-card rounded-2xl overflow-hidden">
+          <div class="p-5 border-b border-white/[0.06]">
+            <h3 class="font-display font-bold text-base text-white">Document Presence & Verification Matrix</h3>
+            <p class="text-xs text-slate-400">Audit of mandatory vs supporting evidence items</p>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="w-full text-left text-sm">
+              <thead class="text-xs uppercase tracking-wider text-slate-400 bg-white/[0.02] border-b border-white/[0.06]">
+                <tr>
+                  <th class="py-3 px-5">Evidence Item</th>
+                  <th class="py-3 px-5">Category</th>
+                  <th class="py-3 px-5">Attached File</th>
+                  <th class="py-3 px-5 text-right">Audit Status</th>
+                </tr>
+              </thead>
+              <tbody id="checklist-table-body" class="divide-y divide-white/[0.04]">
+                <!-- Injected via JavaScript -->
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- TAB 4: RULES & POLICY RAG -->
+      <section id="tab-rules" class="tab-pane space-y-6 hidden">
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          
+          <!-- Deterministic Rules Calculations Card -->
+          <div class="glass-card p-6 rounded-2xl space-y-4">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 rounded-xl bg-cyan-500/10 border border-cyan-500/20 text-cyan-400">
+                <i data-lucide="binary" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-display font-bold text-base text-white">Deterministic Rules Engine</h3>
+                <p class="text-xs text-slate-400">Calculated strictly in Python via <code class="text-cyan-300">relativedelta</code> (Zero LLM Arithmetic)</p>
+              </div>
+            </div>
+
+            <div id="rules-engine-results" class="space-y-3 pt-2">
+              <!-- Dynamically rendered via app.js -->
+            </div>
+          </div>
+
+          <!-- Retrieved Statutory Policies Card -->
+          <div class="glass-card p-6 rounded-2xl space-y-4">
+            <div class="flex items-center gap-3">
+              <div class="p-2.5 rounded-xl bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
+                <i data-lucide="book-marked" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <h3 class="font-display font-bold text-base text-white">Governing Statutory Provisions</h3>
+                <p class="text-xs text-slate-400">Parent-child legal chunks with temporal validity verification</p>
+              </div>
+            </div>
+
+            <div id="statutory-policies-results" class="space-y-3 pt-2">
+              <!-- Dynamically rendered via app.js -->
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+      <!-- TAB 5: CASE DOSSIER & COMPLAINT LETTER -->
+      <section id="tab-dossier" class="tab-pane space-y-6 hidden">
+        <div class="glass-card p-6 rounded-2xl space-y-5">
+          <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h2 class="font-display font-bold text-lg text-white">Formal Grievance Complaint Letter</h2>
+              <p class="text-xs text-slate-400">Compiled legal-readiness draft backed by factual timestamps and statutory citations</p>
+            </div>
+            <div class="flex items-center gap-2">
+              <button id="btn-copy-draft" class="btn-glass flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold text-slate-200 hover:text-white transition">
+                <i data-lucide="copy" class="w-4 h-4"></i>
+                <span id="copy-btn-text">Copy Text</span>
+              </button>
+              <button id="btn-download-dossier" class="btn-gradient flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold text-white transition">
+                <i data-lucide="download" class="w-4 h-4"></i>
+                <span>Download Dossier</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Text Preview Box -->
+          <div class="relative rounded-xl overflow-hidden border border-white/[0.08] bg-[#050811]">
+            <pre id="complaint-text-preview" class="p-5 font-mono text-xs sm:text-sm text-slate-300 overflow-x-auto whitespace-pre-wrap leading-relaxed max-h-[500px]"></pre>
+          </div>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="mt-auto border-t border-white/[0.06] py-5 px-4 text-center text-xs text-slate-500">
+      <div class="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+        <div class="flex items-center gap-2">
+          <i data-lucide="shield" class="w-4 h-4 text-cyan-500"></i>
+          <span>ConsumerShield 2.0 — Evidence Intelligence Platform</span>
+        </div>
+        <p class="text-[11px] text-slate-500">
+          Disclaimer: This system is an evidence compilation assistance tool. It does not provide legal representation or legal advice.
+        </p>
+      </div>
+    </footer>
+
+  </div>
+
+  <!-- Main Application Script -->
+  <script src="app.js?v=2.4"></script>
+</body>
+</html>
