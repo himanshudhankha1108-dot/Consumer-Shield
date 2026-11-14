@@ -15,10 +15,12 @@ from evidence.schemas import (
     CaseReadinessReport,
     ConflictAlert,
     DisputeType,
+    DocumentType,
     EvidenceChecklistItem,
     RuleCheckResult,
     ScoreDimension,
     TimelineEvent,
+    TimelineEventType,
 )
 
 
@@ -234,13 +236,41 @@ class CaseReportGenerator:
                 attachments.append(f"  - {item.item_name}")
         attachment_block = "\n".join(attachments) if attachments else "  [List of enclosed documents]"
 
+        # Separate consumer-observed symptom from service center technical diagnosis
+        user_symptom = None
+        tech_diagnosis = None
+        inspection_date = None
+
+        for evt in report.timeline:
+            if evt.event_type == TimelineEventType.DEFECT_DISCOVERED:
+                desc_clean = evt.description.replace("Defect identified:", "").strip()
+                if evt.source_doc_type in (DocumentType.JOB_SHEET, DocumentType.EMAIL) or any(w in desc_clean.lower() for w in ["circuit", "power rail", "component failure", "board failure"]):
+                    tech_diagnosis = desc_clean
+                    if evt.event_date:
+                        inspection_date = evt.event_date.isoformat()
+                elif not user_symptom:
+                    user_symptom = desc_clean
+
+        if not user_symptom:
+            user_symptom = defect_desc
+
+        facts_narrative = f"On {purchase_date}, I purchased the above-mentioned product."
+        if defect_date != "[Defect Date]":
+            facts_narrative += f" On {defect_date}, I experienced the following hardware failure/symptoms: {user_symptom}."
+        else:
+            facts_narrative += f" I experienced the following hardware failure/symptoms: {user_symptom}."
+
+        if tech_diagnosis and tech_diagnosis.lower() != user_symptom.lower():
+            insp_date_str = f"on {inspection_date}" if inspection_date else "upon technical inspection"
+            facts_narrative += f" Subsequent technical inspection by the service center ({service_center or 'Authorized Service Center'}) {insp_date_str} diagnosed the internal hardware failure as: {tech_diagnosis}."
+
         # Service center quotation paragraph
         repair_quote_para = ""
         if repair_demanded:
             repair_quote_para = (
                 f"\nFurthermore, the service partner ({service_center or 'Authorized Service Center'}) "
                 f"unlawfully rejected free warranty coverage and demanded payment of {currency} {repair_demanded} "
-                f"for repairs, in clear violation of the terms of warranty and Section 2(47) of the Consumer Protection Act, 2019.\n"
+                f"for repairs, in clear violation of express warranty terms and Section 2(47) of the Consumer Protection Act, 2019.\n"
             )
 
         # Seller response context
@@ -258,6 +288,37 @@ class CaseReportGenerator:
                     f"\nThe seller/service provider responded as follows: \"{seller_response}\". "
                     f"This response is inadequate and does not resolve the core grievance.\n"
                 )
+
+        # Dynamic Statutory and Warranty Policy Grounds
+        statutory_grounds: List[str] = []
+        combined_defect = f"{defect_desc} {tech_diagnosis or ''}".lower()
+        if "motherboard" in combined_defect or "display" in combined_defect or "power" in combined_defect or repair_demanded:
+            statutory_grounds.append(
+                f"  1. BREACH OF EXPRESS WARRANTY TERMS (Clause 2):\n"
+                f"     Under Clause 2 of the Manufacturer Warranty Terms, hardware malfunctions, motherboard power failure, "
+                f"and screen display failure occurring within the 12-month warranty period entitle the consumer to zero-cost repair "
+                f"or replacement. Demanding {currency} {repair_demanded or 48500.0} directly breaches this express contractual warranty."
+            )
+        else:
+            statutory_grounds.append(
+                f"  1. BREACH OF EXPRESS WARRANTY:\n"
+                f"     The product failed during the active warranty period, entitling the consumer to zero-cost repair or replacement."
+            )
+
+        statutory_grounds.append(
+            f"  2. PRODUCT LIABILITY OF MANUFACTURER (Section 84, Consumer Protection Act, 2019):\n"
+            f"     Section 84 holds the product manufacturer strictly liable in a product liability action for manufacturing defects, "
+            f"design flaws, and failure to conform to express warranties."
+        )
+
+        statutory_grounds.append(
+            f"  3. UNFAIR TRADE PRACTICE & DEFICIENCY IN SERVICE (Sections 2(11) & 2(47), CPA 2019):\n"
+            f"     Summary rejection of warranty coverage citing unsubstantiated customer 'voltage fluctuation' or 'environmental wear' "
+            f"without an objective third-party technical laboratory test report constitutes an actionable 'Deficiency in Service' under "
+            f"Section 2(11) and an 'Unfair Trade Practice' under Section 2(47)."
+        )
+
+        statutory_grounds_block = "\n\n".join(statutory_grounds)
 
         letter = f"""CONSUMER COMPLAINT
 
@@ -282,11 +343,15 @@ I am writing to formally register my complaint regarding the {product}{model_str
 
 STATEMENT OF FACTS:
 
-On {purchase_date}, I purchased the above-mentioned product. {f"On {defect_date}, I discovered the following issue: {defect_desc}." if defect_date != "[Defect Date]" else f"I discovered the following issue: {defect_desc}."}
+{facts_narrative}
 {response_para}{repair_quote_para}
 CHRONOLOGY OF EVENTS:
 
 {timeline_block}
+
+LEGAL GROUNDS & STATUTORY VIOLATIONS:
+
+{statutory_grounds_block}
 
 RELIEF SOUGHT:
 

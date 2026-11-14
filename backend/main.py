@@ -325,15 +325,18 @@ async def upload_evidence(
                     )
                 )
             if extraction_output.complaint_date:
-                case["timeline"].add_event(
-                    TimelineEvent(
-                        event_type=TimelineEventType.COMPLAINT_RAISED,
-                        event_date=extraction_output.complaint_date,
-                        description="Consumer lodged formal complaint / return request",
-                        source_doc_type=doc_type,
-                        source_filename=filename,
+                # Only register COMPLAINT_RAISED if this is not a seller response/rejection email falsely extracted as complaint date
+                is_seller_rejection = doc_type in (DocumentType.EMAIL, DocumentType.JOB_SHEET) and bool(extraction_output.seller_response or extraction_output.repair_amount_demanded)
+                if not is_seller_rejection or (extraction_output.complaint_date != extraction_output.seller_response_date):
+                    case["timeline"].add_event(
+                        TimelineEvent(
+                            event_type=TimelineEventType.COMPLAINT_RAISED,
+                            event_date=extraction_output.complaint_date,
+                            description="Consumer lodged formal complaint / return request",
+                            source_doc_type=doc_type,
+                            source_filename=filename,
+                        )
                     )
-                )
             if extraction_output.seller_response_date or extraction_output.seller_response:
                 case["timeline"].add_event(
                     TimelineEvent(
