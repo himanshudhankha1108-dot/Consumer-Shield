@@ -389,9 +389,22 @@ class CaseReportGenerator:
                     for l in excerpt.split("\n")
                     if l.strip() and not l.strip().startswith("#") and not re.match(r'^\d+\.\s+[A-Za-z\s&]+$', l.strip())
                 ]
-                clean_excerpt = " ".join([c for c in content_lines if len(c) > 15])[:240].strip() if content_lines else excerpt[:200].strip()
-                if not clean_excerpt.endswith("."):
-                    clean_excerpt += "..."
+                full_text = " ".join([c for c in content_lines if len(c) > 15])
+                # Terminate cleanly on complete sentence boundaries (zero mid-sentence truncation)
+                sentences = re.split(r'(?<=[.!?])\s+', full_text)
+                selected_sentences = []
+                cur_len = 0
+                for s in sentences:
+                    s_clean = s.strip()
+                    if not s_clean:
+                        continue
+                    selected_sentences.append(s_clean)
+                    cur_len += len(s_clean)
+                    if cur_len >= 140:
+                        break
+                clean_excerpt = " ".join(selected_sentences).strip() if selected_sentences else full_text[:200].strip()
+                if not clean_excerpt.endswith((".", "!", "?")):
+                    clean_excerpt += "."
 
                 # High linguistic variety and substantive legal analysis per provision (eliminates boilerplate loop)
                 sec_lower = sec_name.lower()
