@@ -100,6 +100,13 @@ class CaseExtractionOutput(BaseModel):
     order_id: Optional[str] = None
     purchase_date: Optional[str] = Field(None, description="ISO YYYY-MM-DD if identifiable")
     delivery_date: Optional[str] = Field(None, description="ISO YYYY-MM-DD if identifiable")
+    customer_name: Optional[str] = Field(None, description="Full name of consumer/buyer")
+    customer_address: Optional[str] = Field(None, description="Billing or shipping address of consumer")
+    customer_phone: Optional[str] = Field(None, description="Contact phone number of consumer")
+    customer_email: Optional[str] = Field(None, description="Email address of consumer")
+    seller_address: Optional[str] = Field(None, description="Address of seller or store")
+    inspection_date: Optional[str] = Field(None, description="Date of technician inspection if identifiable")
+    inspection_findings: Optional[str] = Field(None, description="Technician diagnostic finding")
     amount_paid: Optional[float] = Field(None, description="Original purchase price on invoice")
     repair_amount_demanded: Optional[float] = Field(None, description="Quotation or repair amount demanded by service center")
     service_center: Optional[str] = Field(None, description="Name of third-party repair / service center")

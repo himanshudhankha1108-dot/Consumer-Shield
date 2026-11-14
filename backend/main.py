@@ -374,6 +374,29 @@ async def upload_evidence(
                             source_filename=filename,
                         )
                     )
+
+            # Technician inspection / service visit event
+            insp_date = extraction_output.inspection_date
+            if not insp_date and doc_type in (DocumentType.JOB_SHEET, DocumentType.EMAIL):
+                insp_m = re.search(r'(?:inspected onsite by our technician on|inspected on|technician visit(?:ed)? on|inspection date:?)\s*(\d{1,2}\s+[A-Za-z]{3,9}\s+20\d\d|20\d\d[-/]\d\d[-/]\d\d)', extracted_text, re.I)
+                if insp_m:
+                    try:
+                        from dateutil import parser as dparser
+                        insp_date = dparser.parse(insp_m.group(1), fuzzy=True).date().isoformat()
+                    except Exception:
+                        pass
+            if insp_date:
+                insp_findings = extraction_output.inspection_findings or extraction_output.defect_description or "technical assessment"
+                case["timeline"].add_event(
+                    TimelineEvent(
+                        event_type=TimelineEventType.SERVICE_VISIT,
+                        event_date=insp_date,
+                        description=f"Technical inspection: Service technician inspected product ({insp_findings})",
+                        source_doc_type=doc_type,
+                        source_filename=filename,
+                    )
+                )
+
             if extraction_output.seller_response_date or extraction_output.seller_response:
                 case["timeline"].add_event(
                     TimelineEvent(
@@ -608,16 +631,40 @@ def analyze_case(case_id: str):
         retrieved_policies = []
 
     if retrieved_policies:
-        relevant_policies = [
-            {
-                "source_name": sec.get("source_name", "Statutory Rule"),
-                "section": sec.get("section", "Provision"),
-                "excerpt": sec.get("excerpt", "")[:350],
-                "relevance": f"RRF Score: {sec.get('relevance_score', 0.0)}",
-                "citation": sec.get("citation", ""),
-            }
-            for sec in retrieved_policies
-        ]
+        relevant_policies = []
+        is_delivered_defect = bool(
+            resolved_facts.get("delivery_date")
+            or resolved_facts.get("defect_date")
+            or dispute_type in (DisputeType.DEFECTIVE_PRODUCT, DisputeType.WARRANTY_REJECTION)
+        )
+        for sec in retrieved_policies:
+            sec_title = str(sec.get("section", "")).lower()
+            src_title = str(sec.get("source_name", "")).lower()
+            excerpt_txt = str(sec.get("excerpt", "")).lower()
+            # Strict Relevance Filter: Drop pre-dispatch, cancellation, and irrelevant product categories for delivered goods
+            if is_delivered_defect:
+                if any(k in sec_title or k in excerpt_txt for k in ["cancellation & pre-dispatch", "pre-dispatch", "fashion & lifestyle", "innerwear"]):
+                    continue
+            relevant_policies.append(
+                {
+                    "source_name": sec.get("source_name", "Statutory Rule"),
+                    "section": sec.get("section", "Provision"),
+                    "excerpt": sec.get("excerpt", "")[:350],
+                    "relevance": f"RRF Score: {sec.get('relevance_score', 0.0)}",
+                    "citation": sec.get("citation", ""),
+                }
+            )
+        # If all were filtered, maintain baseline CPA statutory provision
+        if not relevant_policies:
+            relevant_policies = [
+                {
+                    "source_name": "Consumer Protection Act, 2019",
+                    "section": "Section 84 (Liability of Product Manufacturer)",
+                    "excerpt": "A product manufacturer shall be liable in a product liability action, if the product contains a manufacturing defect, or is defective in design, or there is a deviation from manufacturing specifications, or the product does not conform to the express warranty.",
+                    "relevance": "Direct Statutory Application",
+                    "citation": "Consumer Protection Act, 2019, Section 84",
+                }
+            ]
     else:
         # Explicit fallback notice if retrieval is unavailable
         relevant_policies = [

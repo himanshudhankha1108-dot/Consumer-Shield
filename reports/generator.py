@@ -8,7 +8,8 @@ letter draft.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import date, datetime
+import re
 from typing import Any, Dict, List, Optional
 
 from evidence.schemas import (
@@ -221,10 +222,34 @@ class CaseReportGenerator:
         platform_str = f" via {platform}" if platform else ""
 
         # Build timeline summary
+        sorted_events = sorted(
+            report.timeline,
+            key=lambda e: (e.event_date or date.min, e.event_type.value)
+        )
         timeline_lines: List[str] = []
-        for evt in report.timeline:
-            date_str = evt.event_date.isoformat() if evt.event_date else "Date unknown"
-            timeline_lines.append(f"  - {date_str}: {evt.description}")
+        seen_events = set()
+        has_purchase_event = False
+
+        for evt in sorted_events:
+            date_str = evt.event_date.isoformat() if evt.event_date else None
+            # Deduplicate purchase events: use the canonical purchase_date
+            if evt.event_type == TimelineEventType.PURCHASE:
+                if has_purchase_event:
+                    continue
+                has_purchase_event = True
+                display_pdate = purchase_date if purchase_date != "[Purchase Date]" else (date_str or "Date unknown")
+                timeline_lines.append(f"  - {display_pdate}: Purchased {product} from {seller}{platform_str}")
+                continue
+
+            # Deduplicate duplicate events on same date with similar descriptions
+            evt_key = (date_str, evt.description.strip().lower()[:45])
+            if evt_key in seen_events:
+                continue
+            seen_events.add(evt_key)
+
+            display_date = date_str or "Date unknown"
+            timeline_lines.append(f"  - {display_date}: {evt.description}")
+
         timeline_block = "\n".join(timeline_lines) if timeline_lines else "  [Timeline details]"
 
         # Attachments list
@@ -289,9 +314,10 @@ class CaseReportGenerator:
                     f"This rejection is arbitrary and fails to honor consumer statutory protections.\n"
                 )
             else:
+                complaint_ref = f"on {complaint_date}" if complaint_date != "[Complaint Date]" else "via formal complaint"
                 response_para = (
-                    f"\nThe seller/service provider responded as follows: \"{seller_response}\". "
-                    f"This response is inadequate and does not resolve the core grievance.\n"
+                    f"\nUpon raising the grievance {complaint_ref}, the seller responded: \"{seller_response}\". "
+                    f"However, this administrative response did not provide an operational remedy or resolve the underlying hardware defect.\n"
                 )
 
         # Dynamic Statutory and Warranty Policy Grounds (Strictly Generalized)
@@ -327,7 +353,7 @@ class CaseReportGenerator:
             f"Section 2(11) and an 'Unfair Trade Practice' under Section 2(47)."
         )
 
-        # Dynamic RAG statutory citations from knowledge base
+        # Dynamic RAG statutory citations from knowledge base with strict relevance & clean substantive excerpts
         rag_citations = []
         if report.relevant_policies:
             idx = 4
@@ -336,20 +362,43 @@ class CaseReportGenerator:
                 sec_name = policy.get("section", "Statutory Provision")
                 excerpt = policy.get("excerpt", "").strip()
                 citation = policy.get("citation") or f"{src_name}, {sec_name}"
+
+                # Strict relevance filter against irrelevant policy topics
+                if any(irrel in citation.lower() or irrel in excerpt.lower() for irrel in ["cancellation & pre-dispatch", "pre-dispatch", "fashion & lifestyle", "innerwear"]):
+                    continue
+
                 if citation in rag_citations:
                     continue
                 rag_citations.append(citation)
-                clean_excerpt = excerpt.split("\n")[0][:220].strip()
+
+                # Extract clean substantive sentence (skipping markdown headings and section numbers)
+                content_lines = [
+                    re.sub(r'^[#*\-\s\d\.]+', '', l).strip()
+                    for l in excerpt.split("\n")
+                    if l.strip() and not l.strip().startswith("#") and not re.match(r'^\d+\.\s+[A-Za-z\s&]+$', l.strip())
+                ]
+                clean_excerpt = " ".join([c for c in content_lines if len(c) > 15])[:240].strip() if content_lines else excerpt[:200].strip()
+                if not clean_excerpt.endswith("."):
+                    clean_excerpt += "..."
+
+                label = "STATUTORY MANDATE" if "act" in src_name.lower() or "section" in sec_name.lower() else "BENCHMARK INDUSTRY COMPLIANCE STANDARD"
                 statutory_grounds.append(
-                    f"  {idx}. STATUTORY MANDATE ({citation}):\n"
-                    f"     \"{clean_excerpt}...\"\n"
-                    f"     Under this statutory provision, the seller and manufacturer must provide prompt redressal without causing financial prejudice to the consumer."
+                    f"  {idx}. {label} ({citation}):\n"
+                    f"     \"{clean_excerpt}\"\n"
+                    f"     Under this governing provision, the seller and manufacturer must provide prompt redressal without causing financial prejudice or imposing unauthorized repair burdens on the consumer."
                 )
                 idx += 1
                 if idx > 5:
                     break
 
         statutory_grounds_block = "\n\n".join(statutory_grounds)
+
+        # Buyer & Seller Identity Injection
+        customer_name = facts.get("customer_name") or "[Your Full Name]"
+        customer_address = facts.get("customer_address") or "[Your Address]"
+        customer_email = facts.get("customer_email") or "[Email Address]"
+        customer_phone = facts.get("customer_phone") or "[Phone Number]"
+        seller_address = facts.get("seller_address") or "[Seller/Company Address]"
 
         letter = f"""CONSUMER COMPLAINT
 
@@ -359,14 +408,13 @@ Date: {datetime.utcnow().strftime('%d %B %Y')}
 
 To:
   {seller}{platform_str}
-  [Seller/Company Address]
+  {seller_address}
 
 From:
-  [Your Full Name]
-  [Your Address]
-  [City, State, PIN Code]
-  [Email Address]
-  [Phone Number]
+  {customer_name}
+  {customer_address}
+  {customer_email}
+  {customer_phone}
 
 Dear Sir/Madam,
 
@@ -387,9 +435,9 @@ LEGAL GROUNDS & STATUTORY VIOLATIONS:
 RELIEF SOUGHT:
 
 Based on the above facts and applicable consumer protection laws, I request the following:
-  1. {"Free-of-cost warranty repair or replacement without demanding payment of " + str(currency) + " " + str(repair_demanded) + ", OR " if repair_demanded else ""}Full refund of {currency} {amount}, OR
-  2. Replacement of the defective product with a new unit of the same or equivalent specification, AND
-  3. Compensation for the inconvenience, mental agony, and time spent pursuing this matter.
+  1. {"Immediate zero-cost warranty repair or restoration of the product without demanding payment of " + str(currency) + " " + str(repair_demanded) + ", OR" if repair_demanded else "Immediate zero-cost warranty repair or defect rectification, OR"}
+  2. Full refund of the purchase price amounting to {currency} {amount}, OR replacement with a brand new unit of equivalent specification, AND
+  3. Compensation for the inconvenience, mental agony, and expenses incurred pursuing this grievance.
 
 I have previously raised this complaint on {complaint_date} but have not received a satisfactory resolution.
 
@@ -401,9 +449,10 @@ ENCLOSED DOCUMENTS:
 
 Yours faithfully,
 
-[Your Full Name]
+{customer_name}
 [Your Signature]
 """
+        return letter.strip()
         return letter.strip()
 
     # ── Serialisation ──────────────────────────────────────────

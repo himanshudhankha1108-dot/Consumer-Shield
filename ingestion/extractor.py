@@ -32,7 +32,9 @@ EXTRACTION_SYSTEM_PROMPT = (
     "6. CRITICAL: 'seller_name' is ONLY the merchant/retailer who sold the product (e.g. Croma, Amazon, Flipkart). Put service/repair partners in 'service_center'.\n"
     "7. CRITICAL: 'seller_response' must capture the official response, denial, or warranty rejection stated by the seller or authorized service center (e.g. 'free warranty repair is REJECTED citing moisture/wear'). Whenever a document contains a warranty rejection or payment demand, you MUST extract 'seller_response' AND also extract 'seller_response_date' (ISO YYYY-MM-DD) from the document date.\n"
     "8. CRITICAL: 'complaint_date' is ONLY the date the CONSUMER initially lodged their grievance or ticket (e.g. 2026-02-14 in customer chat). When extracting from a service center quotation or seller rejection email, DO NOT set 'complaint_date' to the email's date. A service center response or rejection is NOT a complaint lodged by the consumer.\n"
-    "9. Be concise but precise."
+    "9. Extract buyer / consumer identity if present: 'customer_name', 'customer_address', 'customer_phone', 'customer_email', and 'seller_address'.\n"
+    "10. If an inspection by a service center technician occurred on-site or in-lab, extract 'inspection_date' (YYYY-MM-DD) and 'inspection_findings'.\n"
+    "11. Be concise but precise."
 )
 
 
@@ -91,9 +93,26 @@ def heuristic_text_extractor(document_text: str, filename: str) -> CaseExtractio
     seller_match = re.search(r'(?:Retailer|Seller|Merchant|Sold by)[:\s]+([^\n\r]+)', document_text, re.I)
     seller_name = seller_match.group(1).strip() if seller_match else None
 
+    # Extract customer name, email, phone, address
+    cust_match = re.search(r'(?:Customer Name|Customer|Buyer|Purchaser)[:\s]+([A-Z][a-zA-Z\s\.\-]{2,40})', document_text, re.I)
+    customer_name = cust_match.group(1).strip() if cust_match else None
+
+    email_match = re.search(r'\b([A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,})\b', document_text)
+    customer_email = email_match.group(1).strip() if email_match else None
+
+    phone_match = re.search(r'(?:Phone|Contact|Mobile)[:\s]*([+\d\s\-\(\)]{10,18})', document_text, re.I)
+    customer_phone = phone_match.group(1).strip() if phone_match else None
+
+    addr_match = re.search(r'(?:Billing & Shipping Address|Billing Address|Shipping Address|Address)[:\s]+([^\n\r]+)', document_text, re.I)
+    customer_address = addr_match.group(1).strip() if addr_match else None
+
     return CaseExtractionOutput(
         product_name=product_name,
         seller_name=seller_name,
+        customer_name=customer_name,
+        customer_email=customer_email,
+        customer_phone=customer_phone,
+        customer_address=customer_address,
         purchase_date=purchase_date,
         amount_paid=amount_paid,
         warranty_period_months=warranty_months,
