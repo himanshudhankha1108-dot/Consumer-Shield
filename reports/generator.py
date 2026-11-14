@@ -303,22 +303,27 @@ class CaseReportGenerator:
                 f"Consumer Protection Act, 2019.\n"
             )
 
-        # Seller response context
+        # Seller response context: Look for initial seller / platform response first
         response_para = ""
-        if seller_response:
-            resp_lower = seller_response.lower()
-            is_rejection = any(w in resp_lower for w in ["reject", "denied", "refus", "no refund", "payment", "exclude", "unlawful"])
-            if is_rejection:
-                response_para = (
-                    f"\nThe seller/service provider responded as follows: \"{seller_response}\". "
-                    f"This rejection is arbitrary and fails to honor consumer statutory protections.\n"
-                )
-            else:
-                complaint_ref = f"on {complaint_date}" if complaint_date != "[Complaint Date]" else "via formal complaint"
-                response_para = (
-                    f"\nUpon raising the grievance {complaint_ref}, the seller responded: \"{seller_response}\". "
-                    f"However, this administrative response did not provide an operational remedy or resolve the underlying hardware defect.\n"
-                )
+        initial_resp_text = None
+        for evt in report.timeline:
+            if evt.event_type == TimelineEventType.SELLER_RESPONSE:
+                t_desc = evt.description.replace("Seller response:", "").strip()
+                if not any(w in t_desc.lower() for w in ["rejected", "repudiat", "payment required", "fee of inr"]):
+                    initial_resp_text = t_desc
+                    break
+
+        complaint_ref = f"on {complaint_date}" if complaint_date != "[Complaint Date]" else "via formal complaint"
+        if initial_resp_text:
+            response_para = (
+                f"\nUpon raising the grievance {complaint_ref}, the seller responded: \"{initial_resp_text}\". "
+                f"However, this administrative referral did not resolve the defect or restore the product to functional order.\n"
+            )
+        elif seller_response and not repair_quote_para:
+            response_para = (
+                f"\nThe seller/service provider responded as follows: \"{seller_response}\". "
+                f"This response fails to provide an operational remedy or honor consumer statutory protections.\n"
+            )
 
         # Dynamic Statutory and Warranty Policy Grounds (Strictly Generalized)
         warranty_months = facts.get("warranty_period_months", 12)
