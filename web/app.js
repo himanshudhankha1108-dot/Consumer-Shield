@@ -624,9 +624,15 @@ function renderFactsTable() {
 
       let provenanceHtml = "";
       if (f.sources && f.sources.length > 1) {
-        provenanceHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-950/70 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-medium cursor-help" title="Corroborated across ${f.sources.length} sources: ${f.sources.join(', ')}">
-                            <i data-lucide="layers" class="w-3.5 h-3.5 text-cyan-400"></i> ${f.sources.length} Sources Corroborated
-                          </span>`;
+        if (f.status === "conflicting") {
+          provenanceHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-rose-950/70 text-rose-300 border border-rose-500/30 text-xs font-mono font-medium cursor-help" title="Differing values across ${f.sources.length} sources: ${f.sources.join(', ')}">
+                              <i data-lucide="alert-circle" class="w-3.5 h-3.5 text-rose-400"></i> ${f.sources.length} Differing Sources
+                            </span>`;
+        } else {
+          provenanceHtml = `<span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md bg-cyan-950/70 text-cyan-300 border border-cyan-500/30 text-xs font-mono font-medium cursor-help" title="Corroborated across ${f.sources.length} sources: ${f.sources.join(', ')}">
+                              <i data-lucide="layers" class="w-3.5 h-3.5 text-cyan-400"></i> ${f.sources.length} Sources Corroborated
+                            </span>`;
+        }
       } else {
         const srcName = (f.sources && f.sources[0]) || f.source || "Extracted";
         provenanceHtml = `<span class="text-slate-300 text-xs font-mono truncate max-w-[200px] block" title="${srcName}">${srcName}</span>`;
