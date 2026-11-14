@@ -266,11 +266,16 @@ class CaseReportGenerator:
 
         # Service center quotation paragraph
         repair_quote_para = ""
-        if repair_demanded:
+        exclusion_reason = facts.get("warranty_exclusions")
+        if repair_demanded or exclusion_reason:
+            pretext_clause = f" under the baseless pretext of '{exclusion_reason}'" if exclusion_reason else ""
+            demand_clause = f" and demanded an unauthorized payment of {currency} {repair_demanded} for repairs" if repair_demanded else ""
             repair_quote_para = (
                 f"\nFurthermore, the service partner ({service_center or 'Authorized Service Center'}) "
-                f"unlawfully rejected free warranty coverage and demanded payment of {currency} {repair_demanded} "
-                f"for repairs, in clear violation of express warranty terms and Section 2(47) of the Consumer Protection Act, 2019.\n"
+                f"unlawfully rejected free warranty coverage{pretext_clause}{demand_clause}. "
+                f"This summary repudiation without an objective technical laboratory test report is arbitrary, "
+                f"unlawful, and in direct violation of express warranty terms and Section 2(47) of the "
+                f"Consumer Protection Act, 2019.\n"
             )
 
         # Seller response context
@@ -292,7 +297,7 @@ class CaseReportGenerator:
         # Dynamic Statutory and Warranty Policy Grounds (Strictly Generalized)
         warranty_months = facts.get("warranty_period_months", 12)
         warranty_type = facts.get("warranty_type", "Manufacturer")
-        defect_target = tech_diagnosis or user_symptom or defect_desc
+        formal_defect = tech_diagnosis or defect_desc or "hardware malfunction"
 
         repair_demand_text = (
             f" Demanding payment of {currency} {repair_demanded} for remediation directly breaches this express contractual warranty."
@@ -302,15 +307,30 @@ class CaseReportGenerator:
 
         statutory_grounds: List[str] = [
             f"  1. BREACH OF EXPRESS WARRANTY TERMS:\n"
-            f"     Under the {warranty_type} Warranty Terms, operational defects and component failures (including '{defect_target}') "
-            f"occurring within the {warranty_months}-month warranty period entitle the consumer to zero-cost repair or replacement by the "
+            f"     Under the {warranty_type} Warranty Terms, comprehensive warranty coverage mandates that operational failures "
+            f"and component defects (including verified internal issues such as '{formal_defect}') occurring within the "
+            f"{warranty_months}-month warranty period entitle the consumer to zero-cost repair or replacement by the "
             f"authorized service network.{repair_demand_text}"
         ]
+
+        statutory_grounds.append(
+            f"  2. PRODUCT LIABILITY OF MANUFACTURER (Section 84, Consumer Protection Act, 2019):\n"
+            f"     Section 84 holds the product manufacturer strictly liable in a product liability action for manufacturing defects, "
+            f"design flaws, and failure to conform to express warranties. The manufacturer cannot evade statutory liability by "
+            f"imposing arbitrary repair costs."
+        )
+
+        statutory_grounds.append(
+            f"  3. UNFAIR TRADE PRACTICE & DEFICIENCY IN SERVICE (Sections 2(11) & 2(47), CPA 2019):\n"
+            f"     Summary rejection of warranty coverage under the unproven allegation of customer '{exclusion_reason or 'environmental factors'}' "
+            f"without an objective third-party technical laboratory test report constitutes an actionable 'Deficiency in Service' under "
+            f"Section 2(11) and an 'Unfair Trade Practice' under Section 2(47)."
+        )
 
         # Dynamic RAG statutory citations from knowledge base
         rag_citations = []
         if report.relevant_policies:
-            idx = 2
+            idx = 4
             for policy in report.relevant_policies:
                 src_name = policy.get("source_name", "Consumer Protection Act, 2019")
                 sec_name = policy.get("section", "Statutory Provision")
@@ -321,27 +341,13 @@ class CaseReportGenerator:
                 rag_citations.append(citation)
                 clean_excerpt = excerpt.split("\n")[0][:220].strip()
                 statutory_grounds.append(
-                    f"  {idx}. STATUTORY VIOLATION ({citation}):\n"
+                    f"  {idx}. STATUTORY MANDATE ({citation}):\n"
                     f"     \"{clean_excerpt}...\"\n"
-                    f"     Under this statutory mandate, failure to redress genuine manufacturing defects or imposing unlawful repair "
-                    f"costs during the warranty period makes the manufacturer and seller directly liable to the consumer."
+                    f"     Under this statutory provision, the seller and manufacturer must provide prompt redressal without causing financial prejudice to the consumer."
                 )
                 idx += 1
-                if idx > 3:
+                if idx > 5:
                     break
-
-        if not rag_citations:
-            statutory_grounds.append(
-                f"  2. PRODUCT LIABILITY OF MANUFACTURER (Section 84, Consumer Protection Act, 2019):\n"
-                f"     Section 84 holds the product manufacturer strictly liable in a product liability action for manufacturing defects, "
-                f"design flaws, and failure to conform to express warranties."
-            )
-            statutory_grounds.append(
-                f"  3. UNFAIR TRADE PRACTICE & DEFICIENCY IN SERVICE (Sections 2(11) & 2(47), CPA 2019):\n"
-                f"     Summary rejection of warranty coverage citing unsubstantiated customer wear or external factors without an objective "
-                f"third-party technical laboratory test report constitutes an actionable 'Deficiency in Service' under Section 2(11) "
-                f"and an 'Unfair Trade Practice' under Section 2(47)."
-            )
 
         statutory_grounds_block = "\n\n".join(statutory_grounds)
 

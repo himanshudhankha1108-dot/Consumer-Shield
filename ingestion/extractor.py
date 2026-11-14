@@ -30,7 +30,7 @@ EXTRACTION_SYSTEM_PROMPT = (
     "4. Currency defaults to INR unless stated otherwise.\n"
     "5. CRITICAL: 'amount_paid' is ONLY the purchase price from an invoice. If a service center or email demands money for repairs/replacement, put that in 'repair_amount_demanded'.\n"
     "6. CRITICAL: 'seller_name' is ONLY the merchant/retailer who sold the product (e.g. Croma, Amazon, Flipkart). Put service/repair partners in 'service_center'.\n"
-    "7. CRITICAL: 'seller_response' must capture the official response, denial, or warranty rejection stated by the seller or authorized service center (e.g. 'free warranty repair is REJECTED citing voltage fluctuation'). 'resolution_offered' should capture any alternative resolution proposed (e.g. paid repair quote).\n"
+    "7. CRITICAL: 'seller_response' must capture the official response, denial, or warranty rejection stated by the seller or authorized service center (e.g. 'free warranty repair is REJECTED citing moisture/wear'). Whenever a document contains a warranty rejection or payment demand, you MUST extract 'seller_response' AND also extract 'seller_response_date' (ISO YYYY-MM-DD) from the document date.\n"
     "8. CRITICAL: 'complaint_date' is ONLY the date the CONSUMER initially lodged their grievance or ticket (e.g. 2026-02-14 in customer chat). When extracting from a service center quotation or seller rejection email, DO NOT set 'complaint_date' to the email's date. A service center response or rejection is NOT a complaint lodged by the consumer.\n"
     "9. Be concise but precise."
 )

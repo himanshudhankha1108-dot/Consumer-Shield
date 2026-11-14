@@ -293,6 +293,43 @@ async def upload_evidence(
                 for fact in fact_items:
                     case["ledger"].record_fact(fact)
 
+            # Fallback for service rejection emails missing seller_response or seller_response_date
+            if doc_type in (DocumentType.EMAIL, DocumentType.JOB_SHEET):
+                has_rejection_clues = bool(extraction_output.repair_amount_demanded or extraction_output.warranty_exclusions or (extraction_output.resolution_offered and any(w in str(extraction_output.resolution_offered).lower() for w in ["reject", "denied", "payment"])))
+                if has_rejection_clues and not extraction_output.seller_response:
+                    excl = extraction_output.warranty_exclusions or "alleged external factors"
+                    demand_str = f" demanding payment of {extraction_output.currency or 'INR'} {extraction_output.repair_amount_demanded}" if extraction_output.repair_amount_demanded else ""
+                    extraction_output.seller_response = f"Free warranty repair REJECTED citing {excl}{demand_str}"
+                    case["ledger"].record_fact(
+                        FactItem(
+                            field_name="seller_response",
+                            value=extraction_output.seller_response,
+                            source_doc_type=doc_type,
+                            source_filename=filename,
+                            confidence=0.95,
+                        )
+                    )
+
+                if extraction_output.seller_response and not extraction_output.seller_response_date:
+                    import re
+                    from dateutil import parser as dparser
+                    date_m = re.search(r'\b(20\d\d[-/]\d\d[-/]\d\d|\d{1,2}\s+[A-Za-z]{3,9}\s+20\d\d|\d{1,2}[-/]\d{1,2}[-/]20\d\d)\b', extracted_text)
+                    if date_m:
+                        try:
+                            parsed_d = dparser.parse(date_m.group(1), fuzzy=True).date()
+                            extraction_output.seller_response_date = parsed_d.isoformat()
+                            case["ledger"].record_fact(
+                                FactItem(
+                                    field_name="seller_response_date",
+                                    value=extraction_output.seller_response_date,
+                                    source_doc_type=doc_type,
+                                    source_filename=filename,
+                                    confidence=0.95,
+                                )
+                            )
+                        except Exception:
+                            pass
+
             # Feed events to timeline if dates are present
             if extraction_output.purchase_date:
                 case["timeline"].add_event(
