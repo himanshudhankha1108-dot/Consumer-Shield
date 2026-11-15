@@ -52,7 +52,7 @@ def _fallback_pixel_classification(image_path: str) -> VisionExtractionSchema:
         top_preds = [(categories[top5_catid[i]], float(top5_prob[i].item())) for i in range(5)]
 
         unrelated_classes = {
-            "umbrella", "parasol", "mountain tent", "tent", "bathing cap", "crash helmet",
+            "mousetrap", "umbrella", "parasol", "mountain tent", "tent", "bathing cap", "crash helmet",
             "football helmet", "bicycle helmet", "helmet", "knee pad", "sunglass", "sunglasses",
             "wok", "frying pan", "pot", "pan", "cup", "mug", "plate", "cat", "dog", "bird",
             "pizza", "cheeseburger", "hotdog", "ice cream", "espresso", "alp", "cliff",
@@ -71,12 +71,19 @@ def _fallback_pixel_classification(image_path: str) -> VisionExtractionSchema:
         ELECTRONIC_CLASSES = {
             "cellular telephone", "telephone", "computer", "laptop", "desktop computer",
             "monitor", "screen", "television", "tv", "loudspeaker", "speaker", "microphone",
-            "modem", "keyboard", "mouse", "radio", "ipod", "cassette", "cd player", "disc",
+            "modem", "keyboard", "computer mouse", "radio", "ipod", "cassette", "cd player", "disc",
             "tape", "fan", "heater", "refrigerator", "washer", "microwave", "toaster",
             "vacuum", "drier", "iron", "dishwasher", "switch", "plug", "socket", "drill", "remote"
         }
         has_electronic = any(any(e in label.lower() for e in ELECTRONIC_CLASSES) for label, _ in top_preds)
         primary_label = top_preds[0][0].title()
+
+        if any(u in primary_label.lower() for u in unrelated_classes):
+            return VisionExtractionSchema(
+                is_relevant_to_case=False,
+                detected_primary_object=primary_label,
+                defect_description=None
+            )
 
         if has_electronic:
             return VisionExtractionSchema(
