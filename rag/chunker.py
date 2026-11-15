@@ -28,8 +28,6 @@ class HierarchicalChunker:
         self.child_overlap = child_overlap
         self.min_chunk_size = min_chunk_size
 
-    # ── Section Heading Regex Patterns ─────────────────────────
-    # Matches markdown headers e.g. ### Section 2(12) — "Defect", ## Rule 6: Duties...
     _SECTION_HEADER_RE = re.compile(
         r"(?m)^(#{2,4}\s+(?:Section|Rule|Chapter|\d+\.|\bArticle\b)[^\n]+)",
         re.IGNORECASE,
@@ -75,10 +73,8 @@ class HierarchicalChunker:
         metadata.setdefault("jurisdiction", metadata.get("jurisdiction", "India"))
         metadata.setdefault("source_authority", metadata.get("issuing_authority") or metadata.get("act_number") or doc_title)
 
-        # Split text into sections using markdown headings
         sections = self._split_into_sections(body)
         if not sections:
-            # Fallback for plain unsectioned text
             sections = [("General Provisions", body.strip())]
 
         all_chunks: List[Dict[str, Any]] = []
@@ -112,7 +108,6 @@ class HierarchicalChunker:
             }
             all_chunks.append(parent_chunk)
 
-            # Generate child chunks for the parent
             child_chunks = self._generate_children(
                 parent_id=parent_id,
                 section_header=sec_header,
@@ -129,7 +124,6 @@ class HierarchicalChunker:
         """Split markdown text into (heading, content) tuples."""
         matches = list(self._SECTION_HEADER_RE.finditer(body))
         if not matches:
-            # Try splitting by double newline or h2 if h3 not found
             h2_matches = list(re.finditer(r"(?m)^(#{1,3}\s+[^\n]+)", body))
             if h2_matches:
                 matches = h2_matches
@@ -165,7 +159,6 @@ class HierarchicalChunker:
         if len(subsections) > 1:
             for sub in subsections:
                 if len(sub) > self.max_child_size:
-                    # Further split large subsections with sliding window
                     raw_passages.extend(self._sliding_window(sub))
                 elif len(sub) >= self.min_chunk_size:
                     raw_passages.append(sub)
@@ -179,11 +172,9 @@ class HierarchicalChunker:
         for c_idx, raw in enumerate(raw_passages, start=1):
             child_id = f"{parent_id}_c{c_idx}"
             
-            # Detect subsection if present (e.g. (1), (a), (iv))
             sub_match = re.search(r"^\s*(\(\d+\)|\([a-z]\)|\([ivx]+\)|\d+\.)", raw)
             sub_number = sub_match.group(1) if sub_match else None
 
-            # Prepend section context for rich semantic retrieval
             contextualized_text = f"[{section_header}] {raw}"
 
             child_metadata = {
@@ -220,7 +211,6 @@ class HierarchicalChunker:
             sent_len = len(sent)
             if curr_len + sent_len > self.max_child_size and curr_words:
                 chunks.append(" ".join(curr_words))
-                # Retain overlap words
                 overlap_words = curr_words[-3:] if len(curr_words) >= 3 else curr_words
                 curr_words = list(overlap_words)
                 curr_len = sum(len(w) for w in curr_words) + len(curr_words)

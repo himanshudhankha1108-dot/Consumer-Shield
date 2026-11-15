@@ -42,7 +42,6 @@ class TestEvidenceGapAnalyzer:
         missing = analyzer.get_missing_evidence(checklist)
         score, _ = analyzer.calculate_evidence_score(checklist)
 
-        # Defect photo should be flagged as missing
         photo_items = [i for i in checklist if "photo" in i.item_name.lower() or "defect" in i.item_name.lower()]
         assert any(p.status == "missing" for p in photo_items)
         assert score < 80

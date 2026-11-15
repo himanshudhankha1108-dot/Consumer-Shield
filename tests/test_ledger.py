@@ -42,7 +42,6 @@ class TestCanonicalFactLedger:
         summary = ledger.get_summary()
         assert len(summary["conflicts"]) == 0
         assert ledger.get_resolved_value("purchase_date") == "2026-01-10"
-        # Status upgraded to VERIFIED
         assert ledger.raw_facts["purchase_date"][0].verification_status == VerificationStatus.VERIFIED
 
     def test_conflict_detection(self):
@@ -118,7 +117,6 @@ class TestCanonicalFactLedger:
 
     def test_canonical_records_consolidation(self):
         ledger = CanonicalFactLedger()
-        # Same product mentioned across invoice and warranty
         ledger.record_fact(
             FactItem(
                 field_name="product_name",

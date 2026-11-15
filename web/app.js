@@ -1,8 +1,5 @@
-/**
- * ConsumerShield 2.0 — Frontend Reactive State & 3D Glassmorphic Controller
- */
 
-// Preset Benchmark Cases for One-Click Testing
+
 const PredefinedCases = {
   blank: {
     caseId: "CS-CUSTOM-001",
@@ -280,10 +277,8 @@ const PredefinedCases = {
   }
 };
 
-// Current Active State
 let CurrentCase = JSON.parse(JSON.stringify(PredefinedCases.boat));
 
-// Initialize DOM
 document.addEventListener("DOMContentLoaded", () => {
   renderAll();
   setupEventListeners();
@@ -307,7 +302,6 @@ function renderAll() {
   }
 }
 
-// Update Top Stats Bar
 function updateHeaderStats() {
   const badge = document.getElementById("case-id-badge");
   const statProd = document.getElementById("stat-product");
@@ -326,7 +320,6 @@ function updateHeaderStats() {
   if (statScoreText) statScoreText.textContent = `${CurrentCase.score} / 100`;
 }
 
-// Render Dynamic Conflict Resolution Banner for ANY field
 function renderConflictBanner() {
   const container = document.getElementById("conflict-banner-container");
   if (!container) return;
@@ -370,7 +363,6 @@ function renderConflictBanner() {
       </div>
     `;
 
-    // Bind resolve buttons
     container.querySelectorAll(".btn-resolve-opt").forEach(btn => {
       btn.addEventListener("click", async () => {
         const field = btn.getAttribute("data-field");
@@ -391,7 +383,6 @@ function renderConflictBanner() {
           console.warn("Backend conflict resolve warning:", e);
         }
 
-        // Update facts locally
         CurrentCase.facts = CurrentCase.facts.filter(f => !(f.field === field && f.value !== chosenVal));
         for (const f of CurrentCase.facts) {
           if (f.field === field) {
@@ -400,10 +391,8 @@ function renderConflictBanner() {
           }
         }
 
-        // Remove from conflicts
         CurrentCase.conflicts = CurrentCase.conflicts.filter(c => c.field !== field);
 
-        // Update header if resolved product or seller
         if (field === "product_name") CurrentCase.product = chosenVal;
         if (field === "seller_name") CurrentCase.seller = chosenVal;
         if (field === "purchase_date") CurrentCase.purchaseDate = chosenVal;
@@ -416,7 +405,6 @@ function renderConflictBanner() {
   }
 }
 
-// Render Uploaded Files Bar with Delete Buttons
 function renderUploadedFiles() {
   const container = document.getElementById("uploaded-files-container");
   const chips = document.getElementById("uploaded-files-chips");
@@ -449,7 +437,6 @@ function renderUploadedFiles() {
     `;
   }).join("");
 
-  // Bind delete buttons
   chips.querySelectorAll(".btn-delete-artifact").forEach(btn => {
     btn.addEventListener("click", async (e) => {
       e.stopPropagation();
@@ -469,13 +456,11 @@ function renderUploadedFiles() {
         console.warn("Delete API error:", err);
       }
 
-      // Remove from frontend state
       CurrentCase.uploadedFiles = CurrentCase.uploadedFiles.filter(f => (typeof f === 'string' ? f : f.name) !== fname);
       if (!CurrentCase.facts.some(f => f.source !== fname)) {
         CurrentCase.facts = CurrentCase.facts.filter(f => f.source !== fname);
       }
 
-      // Re-evaluate conflicts
       const fieldGroups = {};
       for (const f of CurrentCase.facts) {
         if (f.status === "conflicting") {
@@ -495,7 +480,6 @@ function renderUploadedFiles() {
   if (window.lucide) lucide.createIcons();
 }
 
-// Global Fact View Mode: "canonical" (default, 1 row per field) vs "audit" (all extractions)
 let factsViewMode = "canonical";
 
 function setFactsViewMode(mode) {
@@ -567,7 +551,6 @@ function getCanonicalFacts(caseObj) {
   return result;
 }
 
-// 1. Render Facts Table
 function renderFactsTable() {
   const tbody = document.getElementById("facts-table-body");
   if (!tbody) return;
@@ -652,7 +635,6 @@ function renderFactsTable() {
     }).join("");
 
   } else {
-    // Audit Trail (Raw Extractions per file)
     if (btnCanonical) {
       btnCanonical.className = "px-2.5 py-1 rounded-md font-medium transition text-slate-400 hover:text-white";
     }
@@ -711,7 +693,6 @@ function renderFactsTable() {
   if (window.lucide) lucide.createIcons();
 }
 
-// 2. Render Timeline
 function renderTimeline() {
   const container = document.getElementById("timeline-container");
   if (!container) return;
@@ -747,7 +728,6 @@ function renderTimeline() {
   }).join("");
 }
 
-// 3. Render Gap Analysis & Dimensions
 function renderGapAnalysis() {
   const dimContainer = document.getElementById("dimensions-container");
   if (dimContainer) {
@@ -791,7 +771,6 @@ function renderGapAnalysis() {
   }
 }
 
-// 4. Render Rules & Statutory Policies Dynamically
 function renderRulesAndPolicies() {
   const rulesContainer = document.getElementById("rules-engine-results");
   if (rulesContainer && CurrentCase.rules) {
@@ -820,7 +799,6 @@ function renderRulesAndPolicies() {
   }
 }
 
-// 5. Render Complaint Draft
 function renderComplaintDraft() {
   const pre = document.getElementById("complaint-text-preview");
   if (pre) {
@@ -828,7 +806,6 @@ function renderComplaintDraft() {
   }
 }
 
-// 6. Update Radial Gauges
 function updateGauges() {
   const score = CurrentCase.score;
   const miniPct = document.getElementById("mini-gauge-pct");
@@ -850,12 +827,10 @@ function updateGauges() {
   }
 }
 
-// Document Relevance Classifier (Checks if file is actually a consumer dispute artifact)
 function classifyDocumentRelevance(filename, text) {
   const lowerName = filename.toLowerCase();
   const lowerText = text.toLowerCase();
 
-  // Explicit non-dispute / academic indicators
   const isAcademic = /exp\d|experiment|os_|oops|practical|semester|assignment|deadlock|cpu_scheduling|paging|lab_report/i.test(lowerName) ||
                      /operating system|deadlock|round robin|semaphore|fork\(\)|int main\(\)|assignment submission/i.test(lowerText);
 
@@ -867,7 +842,6 @@ function classifyDocumentRelevance(filename, text) {
     };
   }
 
-  // Consumer invoice / dispute keywords
   const hasConsumerKeywords = /invoice|tax invoice|gstin|warranty|flipkart|amazon|refund|defect|cash memo|serial no|order id|cloudtail|retailnet/i.test(lowerName) ||
                               /invoice|gstin|amount paid|warranty period|rejection|broken|crackling|defective/i.test(lowerText);
 
@@ -886,7 +860,6 @@ function classifyDocumentRelevance(filename, text) {
   };
 }
 
-// Process Uploaded Files via FastAPI Backend (PyMuPDF, Extractor, Canonical Fact Ledger)
 async function handleMultipleFiles(fileList) {
   const statusEl = document.getElementById("upload-status");
   if (!statusEl) return;
@@ -935,7 +908,6 @@ async function handleMultipleFiles(fileList) {
         newFactsCount += (data.facts ? data.facts.length : 0);
       }
 
-      // Synchronize full canonical ledger state across documents
       if (data.all_facts && data.all_facts.length > 0) {
         CurrentCase.facts = data.all_facts;
       }
@@ -961,7 +933,6 @@ async function handleMultipleFiles(fileList) {
         }
       }
 
-      // Track uploaded file artifact
       CurrentCase.uploadedFiles = CurrentCase.uploadedFiles || [];
       if (!CurrentCase.uploadedFiles.some(f => (typeof f === 'string' ? f : f.name) === file.name)) {
         CurrentCase.uploadedFiles.push({ name: file.name, size: file.size });
@@ -979,7 +950,6 @@ async function handleMultipleFiles(fileList) {
     }
   }
 
-  // Dynamically group active conflicts across extracted facts
   const fieldGroups = {};
   for (const f of CurrentCase.facts) {
     if (f.status === "conflicting") {
@@ -1028,7 +998,6 @@ async function handleMultipleFiles(fileList) {
   if (window.lucide) lucide.createIcons();
 }
 
-// Reset to a completely clean blank case
 function resetToBlankCase() {
   CurrentCase = JSON.parse(JSON.stringify(PredefinedCases.blank));
   CurrentCase.caseId = `CS-CUSTOM-${Math.floor(1000 + Math.random() * 9000)}`;
@@ -1051,9 +1020,7 @@ function resetToBlankCase() {
   renderAll();
 }
 
-// Setup Event Listeners
 function setupEventListeners() {
-  // Case Switcher Dropdown
   const caseSelect = document.getElementById("case-switcher-select");
   if (caseSelect) {
     caseSelect.addEventListener("change", (e) => {
@@ -1065,7 +1032,6 @@ function setupEventListeners() {
     });
   }
 
-  // Reset to Blank Button
   const btnReset = document.getElementById("btn-reset-blank");
   if (btnReset) {
     btnReset.addEventListener("click", () => {
@@ -1073,7 +1039,6 @@ function setupEventListeners() {
     });
   }
 
-  // Tab Switching
   document.querySelectorAll(".tab-btn").forEach(btn => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
@@ -1086,7 +1051,6 @@ function setupEventListeners() {
     });
   });
 
-  // Run Analysis Button (Calls FastAPI /api/cases/{case_id}/analyze)
   const btnAnalysis = document.getElementById("btn-run-analysis");
   if (btnAnalysis) {
     btnAnalysis.addEventListener("click", async () => {
@@ -1186,7 +1150,6 @@ function setupEventListeners() {
       btnAnalysis.innerHTML = `<i data-lucide="check" class="w-4 h-4"></i><span>Analysis Complete</span>`;
       if (window.lucide) lucide.createIcons();
 
-      // Switch to Gap tab
       document.querySelectorAll(".tab-btn").forEach(b => b.classList.remove("active"));
       document.querySelectorAll(".tab-pane").forEach(p => p.classList.add("hidden"));
       const gapBtn = document.querySelector('[data-tab="tab-gap"]');
@@ -1196,7 +1159,6 @@ function setupEventListeners() {
     });
   }
 
-  // File Upload via Input Selection (Supports Multiple Files)
   const fileInput = document.getElementById("evidence-file-input");
   if (fileInput) {
     fileInput.addEventListener("change", (e) => {
@@ -1206,7 +1168,6 @@ function setupEventListeners() {
     });
   }
 
-  // Drag and Drop onto Dropzone
   const dropzone = document.getElementById("upload-dropzone");
   if (dropzone) {
     ["dragenter", "dragover"].forEach(eventName => {
@@ -1231,7 +1192,6 @@ function setupEventListeners() {
     }, false);
   }
 
-  // Copy Draft Button
   const btnCopy = document.getElementById("btn-copy-draft");
   if (btnCopy) {
     btnCopy.addEventListener("click", () => {
@@ -1245,7 +1205,6 @@ function setupEventListeners() {
     });
   }
 
-  // Download Dossier Button
   const btnDownload = document.getElementById("btn-download-dossier");
   if (btnDownload) {
     btnDownload.addEventListener("click", () => {

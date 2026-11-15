@@ -17,8 +17,6 @@ from evidence.schemas import (
 from backend.config import get_instructor_client, TEXT_MODEL
 
 
-# ────────────────── System Prompt ──────────────────
-
 EXTRACTION_SYSTEM_PROMPT = (
     "You are a structured fact-extraction system for consumer disputes. "
     "Given a document, extract every factual field into the requested JSON schema.\n\n"
@@ -38,8 +36,6 @@ EXTRACTION_SYSTEM_PROMPT = (
 )
 
 
-# ────────────────── Extraction ──────────────────
-
 def heuristic_text_extractor(document_text: str, filename: str) -> CaseExtractionOutput:
     """Fallback text analyzer when LLM API is unavailable.
     Inspects the actual text content of the document using regex patterns.
@@ -51,13 +47,11 @@ def heuristic_text_extractor(document_text: str, filename: str) -> CaseExtractio
 
     text_lower = document_text.lower()
 
-    # Check for non-consumer / academic text indicators
     non_consumer = re.search(
         r'\b(experiment|operating system|deadlock|semaphore|paging|algorithm|roll no|lab report|assignment|oops|class\s+\w+|def\s+\w+)\b',
         text_lower
     )
 
-    # Check for consumer indicators
     has_invoice = re.search(r'\b(invoice|tax invoice|bill|cash memo|gstin|receipt|amount paid|order id)\b', text_lower)
     has_warranty = re.search(r'\b(warranty|guarantee|coverage|onsite|replacement)\b', text_lower)
     has_defect = re.search(r'\b(defect|damage|rejection|stopped working|broken|not charging|flicker|lines)\b', text_lower)
@@ -70,30 +64,24 @@ def heuristic_text_extractor(document_text: str, filename: str) -> CaseExtractio
             raw_evidence_quotes=["Document content analyzed: Academic / technical document. No consumer purchase or warranty terms found."]
         )
 
-    # Extract dates (YYYY-MM-DD or DD/MM/YYYY or DD Mon YYYY)
     date_match = re.search(r'\b(20\d\d[-/]\d\d[-/]\d\d|\d\d[-/]\d\d[-/]20\d\d)\b', document_text)
     purchase_date = date_match.group(1) if date_match else None
 
-    # Extract amount
     amt_match = re.search(r'(?:INR|Rs\.?|₹)\s*([\d,]+(?:\.\d\d)?)', document_text)
     amount_paid = float(amt_match.group(1).replace(",", "")) if amt_match else None
 
-    # Extract warranty months
     war_match = re.search(r'(\d+)\s*(?:month|year)s?\s*(?:warranty|guarantee)', text_lower)
     warranty_months = None
     if war_match:
         val = int(war_match.group(1))
         warranty_months = val * 12 if "year" in war_match.group(0) else val
 
-    # Extract product name heuristically if present
     prod_match = re.search(r'(?:Item|Product|Description|Model)[:\s]+([^\n\r]+)', document_text, re.I)
     product_name = prod_match.group(1).strip() if prod_match else None
 
-    # Extract seller name
     seller_match = re.search(r'(?:Retailer|Seller|Merchant|Sold by)[:\s]+([^\n\r]+)', document_text, re.I)
     seller_name = seller_match.group(1).strip() if seller_match else None
 
-    # Extract customer name, email, phone, address
     cust_match = re.search(r'(?:Customer Name|Customer|Buyer|Purchaser)[:\s]+([A-Z][a-zA-Z\s\.\-]{2,40})', document_text, re.I)
     customer_name = cust_match.group(1).strip() if cust_match else None
 
@@ -144,15 +132,11 @@ def extract_facts_from_text(
         )
         return result
     except Exception:
-        # Fall back to content-based heuristic text extraction
         return heuristic_text_extractor(document_text, filename)
 
     return result
 
 
-# ────────────────── Conversion to FactItems ──────────────────
-
-# Fields in CaseExtractionOutput that are not individual "facts"
 _SKIP_FIELDS = {"raw_evidence_quotes", "currency"}
 
 
@@ -182,17 +166,13 @@ def extraction_to_fact_items(
 
         value = getattr(extraction, field_name, None)
 
-        # Skip None / empty values
         if value is None:
             continue
         if isinstance(value, (list, dict)) and not value:
             continue
 
-        # Find a supporting raw quote if available
         raw_snippet = None
         if extraction.raw_evidence_quotes:
-            # Use the first quote as a generic snippet;
-            # more sophisticated matching could be added later.
             raw_snippet = extraction.raw_evidence_quotes[0]
 
         fact_items.append(

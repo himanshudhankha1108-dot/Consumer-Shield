@@ -60,7 +60,6 @@ def get_qdrant_client(
     if _QDRANT_CLIENT is not None:
         return _QDRANT_CLIENT
 
-    # 1. Probe remote port
     try:
         sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         sock.settimeout(0.3)
@@ -73,14 +72,12 @@ def get_qdrant_client(
     except Exception:
         pass
 
-    # 2. Try direct persistent local storage
     os.makedirs(path, exist_ok=True)
     try:
         logger.info("Using local persistent Qdrant storage at %s", path)
         _QDRANT_CLIENT = QdrantClient(path=path)
         return _QDRANT_CLIENT
     except Exception as exc:
-        # 3. If locked by another active process (e.g. live uvicorn server), open process-isolated snapshot
         import shutil
         if "already accessed by another instance" in str(exc) or "LockException" in type(exc).__name__:
             proc_path = f"{path}_proc_{os.getpid()}"
@@ -160,7 +157,6 @@ def ingest_knowledge_base(
     encoder = get_rag_encoder()
     qdrant = qdrant_client or get_qdrant_client()
 
-    # Verify/create collection
     existing_collections = [c.name for c in qdrant.get_collections().collections]
     if collection_name not in existing_collections:
         qdrant.create_collection(
@@ -188,7 +184,6 @@ def ingest_knowledge_base(
         children = [c for c in chunks if c["metadata"].get("chunk_type") == "child"]
         total_parents += len(parents)
 
-        # In case a small doc had no children, promote parents to children
         if not children:
             children = chunks
 
@@ -197,7 +192,6 @@ def ingest_knowledge_base(
     if not all_child_chunks:
         return {"status": "no_chunks", "total_upserted": 0, "total_chunks": 0}
 
-    # Batch embedding with BGE-M3 (normalized dense vectors)
     texts_to_embed = [c["text"] for c in all_child_chunks]
     embeddings = encoder.encode(
         texts_to_embed,
@@ -227,7 +221,6 @@ def ingest_knowledge_base(
             )
         )
 
-    # Upsert in batches of 50
     batch_size = 50
     for i in range(0, len(points), batch_size):
         qdrant.upsert(
@@ -237,7 +230,6 @@ def ingest_knowledge_base(
 
     logger.info("Ingested %d child chunks across %d parent sections into '%s'.", len(points), total_parents, collection_name)
 
-    # Build and serialize BM25 index alongside
     build_bm25_index(all_child_chunks=all_child_chunks)
 
     return {
@@ -274,7 +266,6 @@ def build_bm25_index(
         logger.warning("No chunks available — BM25 index not built.")
         return {"status": "no_chunks", "corpus_size": 0}
 
-    # Tokenize child chunks (lowercase alphanumeric tokens)
     tokenized_corpus = [
         re.findall(r"\w+", c["text"].lower()) for c in all_child_chunks
     ]

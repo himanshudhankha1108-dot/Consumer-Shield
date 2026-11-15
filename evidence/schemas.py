@@ -11,8 +11,6 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 
-# ────────────────── Enumerations ──────────────────
-
 class DocumentType(str, Enum):
     INVOICE = "invoice"
     WARRANTY_CARD = "warranty_card"
@@ -26,11 +24,11 @@ class DocumentType(str, Enum):
 
 
 class VerificationStatus(str, Enum):
-    EXTRACTED = "extracted"             # Raw LLM/OCR extraction
-    VERIFIED = "verified"               # Confirmed by multiple sources
-    CONFLICTING = "conflicting"         # Contradicts another source
-    USER_CONFIRMED = "user_confirmed"   # User manually resolved
-    MISSING = "missing"                 # Expected but not found
+    EXTRACTED = "extracted"
+    VERIFIED = "verified"
+    CONFLICTING = "conflicting"
+    USER_CONFIRMED = "user_confirmed"
+    MISSING = "missing"
 
 
 class DisputeType(str, Enum):
@@ -55,8 +53,6 @@ class TimelineEventType(str, Enum):
     REPLACEMENT_REFUND = "replacement_refund"
     OTHER = "other"
 
-
-# ────────────────── Core Fact Models ──────────────────
 
 class FactItem(BaseModel):
     """A single extracted fact with full source provenance."""
@@ -86,8 +82,6 @@ class ConflictAlert(BaseModel):
     values: List[Dict[str, Any]]
     alert: str
 
-
-# ────────────────── LLM Extraction Schemas ──────────────────
 
 class CaseExtractionOutput(BaseModel):
     """Schema for Grok structured extraction from a single document."""
@@ -137,18 +131,14 @@ class VisionExtractionOutput(BaseModel):
     additional_observations: Optional[str] = None
 
 
-# ────────────────── Evidence Checklist ──────────────────
-
 class EvidenceChecklistItem(BaseModel):
     """One item in the evidence completeness checklist."""
     item_name: str
     required: bool = True
-    status: str = "missing"  # "found", "partial", "missing"
+    status: str = "missing"
     source_filename: Optional[str] = None
     notes: Optional[str] = None
 
-
-# ────────────────── Case-Readiness Report ──────────────────
 
 class ScoreDimension(BaseModel):
     """One dimension of the evidence completeness score."""
@@ -161,7 +151,7 @@ class ScoreDimension(BaseModel):
 class RuleCheckResult(BaseModel):
     """Result from the deterministic rules engine."""
     rule_name: str
-    rule_status: str  # "EVALUATED", "FAILED_PRECONDITION"
+    rule_status: str
     result: Optional[bool] = None
     summary: str
     details: Dict[str, Any] = Field(default_factory=dict)
@@ -173,28 +163,21 @@ class CaseReadinessReport(BaseModel):
     generated_at: datetime
     dispute_type: Optional[DisputeType] = None
 
-    # Extracted & resolved facts
     resolved_facts: Dict[str, Any] = Field(default_factory=dict)
     conflicts: List[ConflictAlert] = Field(default_factory=list)
 
-    # Timeline
     timeline: List[TimelineEvent] = Field(default_factory=list)
 
-    # Evidence
     evidence_checklist: List[EvidenceChecklistItem] = Field(default_factory=list)
 
-    # Rule checks
     rule_results: List[RuleCheckResult] = Field(default_factory=list)
 
-    # Retrieval
     relevant_policies: List[Dict[str, Any]] = Field(default_factory=list)
 
-    # Score
     total_score: int = 0
     max_score: int = 100
     score_breakdown: List[ScoreDimension] = Field(default_factory=list)
 
-    # Recommendations
     missing_evidence: List[str] = Field(default_factory=list)
     next_steps: List[str] = Field(default_factory=list)
     draft_complaint: Optional[str] = None

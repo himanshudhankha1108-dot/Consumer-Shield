@@ -15,10 +15,6 @@ from evidence.schemas import (
     ScoreDimension,
 )
 
-# ────────────────── Evidence requirement definitions ──────────────────
-# Each entry: {"name": <human label>, "required": bool,
-#              "doc_types": [DocumentType, ...] that satisfy this item,
-#              "fact_keys": [str, ...] that partially satisfy this item}
 
 _RequirementDef = Dict[str, Any]
 
@@ -194,7 +190,6 @@ _EVIDENCE_REQUIREMENTS: Dict[DisputeType, List[_RequirementDef]] = {
     DisputeType.NON_DELIVERY: _NON_DELIVERY_REQS,
 }
 
-# ────────────────── Scoring dimensions ──────────────────
 
 _SCORE_DIMENSIONS: List[Dict[str, Any]] = [
     {"dimension": "Purchase Evidence", "max_score": 25, "item_keywords": ["invoice", "receipt", "order", "payment"]},
@@ -222,7 +217,6 @@ class EvidenceGapAnalyzer:
             dispute_type, _DEFAULT_REQS
         )
 
-    # ── Analysis ───────────────────────────────────────────────
 
     def analyze(
         self,
@@ -242,10 +236,8 @@ class EvidenceGapAnalyzer:
             matching_doc_types: List[DocumentType] = req["doc_types"]
             fact_keys: List[str] = req.get("fact_keys", [])
 
-            # Check whether any matching document type was uploaded.
             has_doc = bool(uploaded_set & set(matching_doc_types))
 
-            # Match source filename if available
             source_file = None
             if uploaded_files:
                 for uf in uploaded_files:
@@ -255,14 +247,12 @@ class EvidenceGapAnalyzer:
                         source_file = uf_name
                         has_doc = True
                         break
-                    # Filename heuristic matching
                     lower_uf = uf_name.lower()
                     if any(m.value in lower_uf for m in matching_doc_types if len(m.value) > 3):
                         source_file = uf_name
                         has_doc = True
                         break
 
-            # Check whether relevant facts were resolved.
             matched_facts = [
                 k for k in fact_keys
                 if k in resolved_facts and resolved_facts[k] is not None
@@ -294,7 +284,6 @@ class EvidenceGapAnalyzer:
 
         return checklist
 
-    # ── Missing evidence ───────────────────────────────────────
 
     @staticmethod
     def get_missing_evidence(
@@ -316,7 +305,6 @@ class EvidenceGapAnalyzer:
                 )
         return missing
 
-    # ── Scoring ────────────────────────────────────────────────
 
     @staticmethod
     def calculate_evidence_score(
@@ -350,7 +338,6 @@ class EvidenceGapAnalyzer:
             max_score: int = dim_def["max_score"]
             keywords: List[str] = dim_def["item_keywords"]
 
-            # Collect checklist items that match this dimension.
             matched_items: List[EvidenceChecklistItem] = []
             for item in checklist:
                 item_lower = item.item_name.lower()

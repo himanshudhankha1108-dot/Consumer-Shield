@@ -46,7 +46,6 @@ class TestTimeline:
 
     def test_chronological_violation_detection(self):
         timeline = CaseTimeline()
-        # Delivery dated BEFORE purchase!
         timeline.add_event(
             TimelineEvent(
                 event_type=TimelineEventType.PURCHASE,
@@ -104,7 +103,6 @@ class TestTimeline:
 
     def test_timeline_deduplicates_same_date_milestones(self):
         timeline = CaseTimeline()
-        # Primary invoice purchase event
         timeline.add_event(
             TimelineEvent(
                 event_type=TimelineEventType.PURCHASE,
@@ -114,7 +112,6 @@ class TestTimeline:
                 source_filename="01_invoice.txt",
             )
         )
-        # Duplicate purchase event from WhatsApp mentioning the same purchase date
         timeline.add_event(
             TimelineEvent(
                 event_type=TimelineEventType.PURCHASE,

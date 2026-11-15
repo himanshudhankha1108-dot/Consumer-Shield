@@ -9,7 +9,6 @@ from typing import Any, Dict, List
 
 import streamlit as st
 
-# Add project root to sys.path
 PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
@@ -32,7 +31,6 @@ from reports.generator import CaseReportGenerator
 from ingestion.parser import parse_document
 from ingestion.extractor import extract_facts_from_text, extraction_to_fact_items
 
-# Page configuration
 st.set_page_config(
     page_title="ConsumerShield — Evidence Intelligence",
     page_icon="🛡️",
@@ -40,7 +38,6 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# Custom CSS styling
 st.markdown(
     """
     <style>
@@ -91,7 +88,6 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
-# Session state initialization
 if "ledger" not in st.session_state:
     st.session_state.ledger = CanonicalFactLedger()
 if "timeline" not in st.session_state:
@@ -107,7 +103,6 @@ if "case_id" not in st.session_state:
 if "dispute_type" not in st.session_state:
     st.session_state.dispute_type = DisputeType.DEFECTIVE_PRODUCT
 
-# Header
 col1, col2 = st.columns([4, 1])
 with col1:
     st.markdown('<div class="main-header">🛡️ ConsumerShield 2.0</div>', unsafe_allow_html=True)
@@ -127,7 +122,6 @@ with col2:
 
 st.divider()
 
-# Sidebar: Case Setup & Intake
 with st.sidebar:
     st.subheader("📂 Case Configuration")
     
@@ -170,23 +164,19 @@ with st.sidebar:
         if uploaded_files:
             with st.spinner("Extracting layout, facts and timestamps..."):
                 for up_file in uploaded_files:
-                    # Save temp file
                     temp_dir = os.path.join(PROJECT_ROOT, "temp_uploads")
                     os.makedirs(temp_dir, exist_ok=True)
                     temp_path = os.path.join(temp_dir, up_file.name)
                     with open(temp_path, "wb") as f:
                         f.write(up_file.getbuffer())
 
-                    # Parse
                     parsed = parse_document(temp_path)
                     text = parsed.get("text", "")
 
-                    # Extract structured facts
                     doc_enum = DocumentType(doc_category)
                     try:
                         ext_output = extract_facts_from_text(text, doc_enum, up_file.name)
                     except Exception:
-                        # Deterministic heuristic fallback if LLM offline
                         ext_output = CaseExtractionOutput(
                             product_name="Consumer Device",
                             seller_name="Retailer / Seller",
@@ -201,7 +191,6 @@ with st.sidebar:
                     for fact in fact_items:
                         st.session_state.ledger.record_fact(fact)
 
-                    # Populate timeline
                     if ext_output.purchase_date:
                         st.session_state.timeline.add_event(
                             TimelineEvent(
@@ -250,7 +239,6 @@ with st.sidebar:
         ledger = CanonicalFactLedger()
         timeline = CaseTimeline()
         
-        # Simulated facts
         ledger.record_fact(FactItem(field_name="product_name", value="Boat Rockerz 450", source_doc_type=DocumentType.INVOICE, source_filename="Flipkart_Invoice.pdf", confidence=0.98))
         ledger.record_fact(FactItem(field_name="seller_name", value="RetailNet Online", source_doc_type=DocumentType.INVOICE, source_filename="Flipkart_Invoice.pdf", confidence=0.96))
         ledger.record_fact(FactItem(field_name="purchase_date", value="2026-01-10", source_doc_type=DocumentType.INVOICE, source_filename="Flipkart_Invoice.pdf", confidence=0.99))
@@ -289,16 +277,13 @@ with st.sidebar:
             conflicts = ledger.conflicts
             timeline_events = st.session_state.timeline.build_timeline()
 
-            # Deterministic rules check
             rule_results = DeterministicRulesEngine.run_all_checks(resolved_facts)
 
-            # Evidence Gap Analysis
             gap_analyzer = EvidenceGapAnalyzer(dispute_type=st.session_state.dispute_type)
             checklist = gap_analyzer.analyze(st.session_state.uploaded_doc_types, resolved_facts)
             missing = gap_analyzer.get_missing_evidence(checklist)
             score, breakdown = gap_analyzer.calculate_evidence_score(checklist)
 
-            # Policy retrieval simulation
             policies = [
                 {
                     "source_name": "Consumer Protection Act, 2019",
@@ -332,7 +317,6 @@ with st.sidebar:
             st.session_state.case_report = report
             st.rerun()
 
-# Main Workspace Tabs
 tab1, tab2, tab3, tab4, tab5 = st.tabs(
     [
         "📊 1. Fact Ledger & Conflicts",
@@ -343,7 +327,6 @@ tab1, tab2, tab3, tab4, tab5 = st.tabs(
     ]
 )
 
-# TAB 1: FACT LEDGER
 with tab1:
     st.markdown("### 📋 Canonical Fact Ledger")
     st.write(
@@ -352,7 +335,6 @@ with tab1:
 
     ledger_summary = st.session_state.ledger.get_summary()
 
-    # Conflicting Facts Alert Banner
     if ledger_summary["conflicts"]:
         st.markdown(
             f'<div class="conflict-box">⚠️ <b>{len(ledger_summary["conflicts"])} Factual Conflict(s) Detected</b><br/>Different documents disagree on the facts below. Please review or confirm the accurate value.</div>',
@@ -374,7 +356,6 @@ with tab1:
                     st.success("Resolved!")
                     st.rerun()
 
-    # Facts Table
     raw_facts = st.session_state.ledger.raw_facts
     if raw_facts:
         table_data = []
@@ -394,7 +375,6 @@ with tab1:
     else:
         st.info("No facts recorded yet. Upload evidence or click 'Load Real-World Benchmark Case' in the sidebar.")
 
-# TAB 2: TIMELINE
 with tab2:
     st.markdown("### 🕒 Reconstructed Chronological Sequence")
     st.write(
@@ -434,7 +414,6 @@ with tab2:
     else:
         st.info("Timeline is empty. Ingest documents with dates or load the demo case.")
 
-# TAB 3: GAP ANALYSIS
 with tab3:
     st.markdown("### 🔍 Evidence Gap Analysis & Readiness Index")
     st.write(
@@ -444,7 +423,6 @@ with tab3:
     if st.session_state.case_report:
         report = st.session_state.case_report
         
-        # Score header
         col_s1, col_s2 = st.columns([1, 2])
         with col_s1:
             st.metric(
@@ -457,7 +435,6 @@ with tab3:
             st.progress(report.total_score / 100)
             st.write(f"**Dispute Type:** {report.dispute_type.value.replace('_', ' ').title() if report.dispute_type else 'General'}")
 
-        # Dimension breakdown
         st.markdown("#### Completeness Breakdown by Dimension")
         b_cols = st.columns(len(report.score_breakdown))
         for idx, dim in enumerate(report.score_breakdown):
@@ -494,7 +471,6 @@ with tab3:
     else:
         st.info("Run Full Case-Readiness Analysis from the sidebar to view Gap Analysis.")
 
-# TAB 4: RULES & POLICY
 with tab4:
     st.markdown("### ⚙️ Deterministic Rules Engine & Policy Mapping")
     st.write(
@@ -521,7 +497,6 @@ with tab4:
     else:
         st.info("Run Full Case-Readiness Analysis to see rule-check and RAG results.")
 
-# TAB 5: FINAL DOSSIER
 with tab5:
     st.markdown("### 📋 Case-Readiness Report & Grievance Draft")
     st.write(

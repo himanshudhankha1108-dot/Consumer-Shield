@@ -25,7 +25,6 @@ class TestDeterministicRulesEngine:
 
     def test_warranty_edge_exact_day(self):
         purchase = date(2025, 1, 10)
-        # 12 months from 2025-01-10 is 2026-01-10
         defect = date(2026, 1, 10)
         res = DeterministicRulesEngine.evaluate_warranty_status(purchase, defect, warranty_months=12)
         assert res.rule_status == "EVALUATED"

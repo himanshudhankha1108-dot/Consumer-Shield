@@ -21,12 +21,10 @@ from ingestion.extractor import extraction_to_fact_items
 
 class TestEndToEndPipeline:
     def test_full_pipeline_synthetic_journey(self):
-        # 1. Initialize core case engines
         ledger = CanonicalFactLedger()
         timeline = CaseTimeline()
         dispute_type = DisputeType.DEFECTIVE_PRODUCT
 
-        # 2. Simulate extraction from Invoice
         invoice_ext = CaseExtractionOutput(
             product_name="Sony WH-1000XM4 Headphones",
             seller_name="Appario Retail",
@@ -38,7 +36,6 @@ class TestEndToEndPipeline:
         for f in invoice_facts:
             ledger.record_fact(f)
 
-        # 3. Simulate extraction from Warranty Card
         warranty_ext = CaseExtractionOutput(
             warranty_period_months=12,
             warranty_type="Manufacturer Comprehensive",
@@ -48,9 +45,8 @@ class TestEndToEndPipeline:
         for f in warranty_facts:
             ledger.record_fact(f)
 
-        # 4. Simulate customer complaint email with conflicting purchase date
         email_ext = CaseExtractionOutput(
-            purchase_date="2026-01-14",  # Intentional conflict with invoice
+            purchase_date="2026-01-14",
             defect_date="2026-02-15",
             defect_description="ANC crackling noise and battery charging failure",
             seller_response="Claim rejected due to customer physical inspection clause",
@@ -60,17 +56,14 @@ class TestEndToEndPipeline:
         for f in email_facts:
             ledger.record_fact(f)
 
-        # Verify conflict was caught by ledger
         summary = ledger.get_summary()
         assert len(summary["conflicts"]) == 1
         assert summary["conflicts"][0]["field"] == "purchase_date"
 
-        # User resolves conflict choosing the official invoice date
         ledger.resolve_conflict("purchase_date", "2026-01-10", user_confirmed=True)
         assert len(ledger.conflicts) == 0
         resolved_facts = ledger.resolved_facts
 
-        # 5. Populate timeline
         from evidence.schemas import TimelineEvent
         timeline.add_event(
             TimelineEvent(
@@ -103,25 +96,21 @@ class TestEndToEndPipeline:
         timeline_events = timeline.build_timeline()
         assert len(timeline_events) >= 3
 
-        # 6. Execute Deterministic Rules Engine
         rule_results = DeterministicRulesEngine.run_all_checks(resolved_facts)
         warranty_result = next((r for r in rule_results if r.rule_name == "warranty_period_check"), None)
         assert warranty_result is not None
         assert warranty_result.rule_status == "EVALUATED"
-        assert warranty_result.result is True  # 15 Feb is within 12 months of 10 Jan
+        assert warranty_result.result is True
 
-        # 7. Execute Evidence Gap Analysis (Notice: No DEFECT_PHOTO was uploaded!)
         uploaded_doc_types = [DocumentType.INVOICE, DocumentType.WARRANTY_CARD, DocumentType.EMAIL]
         gap_analyzer = EvidenceGapAnalyzer(dispute_type=dispute_type)
         checklist = gap_analyzer.analyze(uploaded_doc_types, resolved_facts)
         missing_evidence = gap_analyzer.get_missing_evidence(checklist)
         score, score_breakdown = gap_analyzer.calculate_evidence_score(checklist)
 
-        # Score must be penalized for missing defect photos
         assert score < 100
         assert any("photo" in m.lower() or "defect" in m.lower() for m in missing_evidence)
 
-        # 8. Generate Case-Readiness Dossier
         report_gen = CaseReportGenerator(case_id="CS-TEST-001")
         report = report_gen.generate_report(
             resolved_facts=resolved_facts,
@@ -144,7 +133,6 @@ class TestEndToEndPipeline:
         )
         draft = report_gen.generate_complaint_draft(report)
 
-        # 9. Verify Dossier Integrity
         assert report.total_score == score
         assert len(report.next_steps) > 0
         assert "Appario Retail" in draft or "Sony" in draft or "10 Jan 2026" in draft or "2026-01-10" in draft

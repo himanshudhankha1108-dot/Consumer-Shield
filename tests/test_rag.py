@@ -54,7 +54,6 @@ class TestHierarchicalChunker:
         assert "Defect" in parent["text"]
         assert parent["metadata"]["section_number"] == "Section 2(12)"
 
-        # Check child points back to parent
         for child in children:
             assert child["parent_id"] == parent["chunk_id"]
             assert child["metadata"]["parent_id"] == parent["chunk_id"]
@@ -69,7 +68,6 @@ class TestEmbeddingsAndVectorDB:
         assert len(vec) == RAG_EMBEDDING_DIMENSION
         assert len(vec) == 1024
 
-        # Check normalization (norm ~= 1.0)
         norm_sq = sum(x * x for x in vec)
         assert abs(norm_sq - 1.0) < 1e-3
 
@@ -106,7 +104,6 @@ class TestRetrievalLegsAndRRF:
 
         fused = HybridRetriever.reciprocal_rank_fusion(dense_results, sparse_results, k=60)
         assert len(fused) == 3
-        # docB appeared in both lists, so its RRF score should be highest
         assert fused[0]["chunk_id"] == "docB"
         assert fused[0]["score"] == (1.0 / (60 + 2)) + (1.0 / (60 + 1))
 
@@ -126,7 +123,6 @@ class TestRetrievalLegsAndRRF:
             },
         ]
 
-        # Case date: 2026-02-15
         ref_date = date(2026, 2, 15)
         filtered = HybridRetriever.temporal_filter(test_hits, ref_date)
 
@@ -159,11 +155,9 @@ class TestAPIIntegration:
         assert data["indexed_vectors"] > 0
 
     def test_analyze_endpoint_invokes_dynamic_rag(self, api_client: TestClient):
-        # Create a fresh case
         create_res = api_client.post("/api/cases", json={"dispute_type": "defective_product", "title": "Test RAG"})
         case_id = create_res.json()["case_id"]
 
-        # Inject sample facts into ledger
         case = CASES_STORE[case_id]
         from evidence.schemas import FactItem, DocumentType
         case["ledger"].record_fact(
@@ -176,19 +170,16 @@ class TestAPIIntegration:
             FactItem(field_name="seller_response", value="Free warranty repair rejected", source_doc_type=DocumentType.EMAIL, source_filename="email.txt")
         )
 
-        # Call analyze
         an_resp = api_client.post(f"/api/cases/{case_id}/analyze")
         assert an_resp.status_code == 200
         report = an_resp.json()
 
-        # Check relevant policies populated dynamically from RAG
         policies = report.get("relevant_policies", [])
         assert len(policies) > 0
         assert any("RRF Score" in p.get("relevance", "") for p in policies)
         assert any("Consumer Protection" in p.get("source_name", "") or "Warranty" in p.get("source_name", "") for p in policies)
 
     def test_conversational_chat_endpoint(self, api_client: TestClient):
-        # Create a fresh case
         create_res = api_client.post("/api/cases", json={"dispute_type": "defective_product", "title": "Test Chat"})
         case_id = create_res.json()["case_id"]
 

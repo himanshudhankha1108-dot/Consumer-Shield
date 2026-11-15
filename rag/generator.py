@@ -50,7 +50,6 @@ class GroundedLegalGenerator:
                 "citations": [],
             }
 
-        # Build context block
         context_blocks = []
         citations = []
         for i, sec in enumerate(retrieved_sections, 1):
@@ -94,7 +93,6 @@ class GroundedLegalGenerator:
             analysis_text = resp.choices[0].message.content or ""
         except Exception as exc:
             logger.warning("LLM generation fallback: %s", exc)
-            # Deterministic fallback summary if external API unreachable
             analysis_text = (
                 f"Based on retrieved legal provisions ({', '.join(citations[:2])}): "
                 f"The reported hardware defect ('{case_facts.get('defect_description', 'Defect')}') "

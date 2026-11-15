@@ -41,18 +41,15 @@ class ConversationalLegalRAG:
         """Answer a user's question using case context and retrieved legal sections."""
         chat_history = chat_history or []
 
-        # 1. Synthesize targeted retrieval query combining question and dispute context
         product = case_facts.get("product_name") or "product"
         defect = case_facts.get("defect_description") or ""
         seller_resp = case_facts.get("seller_response") or ""
         
         search_query = f"{question} {product} {defect} {seller_resp}".strip()
 
-        # 2. Hybrid Retrieval with parent section context
         context_data = self.retriever.retrieve_context(query=search_query, top_k=3)
         retrieved_sections = context_data.get("sections", [])
 
-        # Format context for LLM
         context_snippets = []
         citations = []
         for sec in retrieved_sections:
@@ -62,7 +59,6 @@ class ConversationalLegalRAG:
 
         context_block = "\n\n".join(context_snippets)
 
-        # 3. Assemble prompt
         facts_summary = "\n".join(
             f"- {k}: {v}"
             for k, v in case_facts.items()
@@ -79,7 +75,6 @@ class ConversationalLegalRAG:
             {"role": "system", "content": CHAT_SYSTEM_PROMPT}
         ]
 
-        # Append last 3 conversational turns if present
         for turn in chat_history[-3:]:
             messages.append({"role": turn.get("role", "user"), "content": turn.get("content", "")})
 

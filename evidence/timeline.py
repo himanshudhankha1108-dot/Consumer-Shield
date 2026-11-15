@@ -12,7 +12,6 @@ from typing import Dict, List, Optional
 from evidence.schemas import DocumentType, TimelineEvent, TimelineEventType
 
 
-# Document authority priority (lower rank = higher legal authority)
 _DOC_PRIORITY: Dict[DocumentType, int] = {
     DocumentType.INVOICE: 1,
     DocumentType.JOB_SHEET: 2,
@@ -25,7 +24,6 @@ _DOC_PRIORITY: Dict[DocumentType, int] = {
     DocumentType.OTHER: 9,
 }
 
-# Pairs of (earlier_type, later_type) that define the expected logical order.
 _EXPECTED_ORDER: List[tuple[TimelineEventType, TimelineEventType]] = [
     (TimelineEventType.PURCHASE, TimelineEventType.DELIVERY),
     (TimelineEventType.DELIVERY, TimelineEventType.DEFECT_DISCOVERED),
@@ -45,14 +43,12 @@ class CaseTimeline:
     def __init__(self) -> None:
         self._events: List[TimelineEvent] = []
 
-    # ── Mutators ───────────────────────────────────────────────
 
     def add_event(self, event: TimelineEvent) -> None:
         """Append a ``TimelineEvent`` to the internal list."""
         if event is not None:
             self._events.append(event)
 
-    # ── Timeline construction ──────────────────────────────────
 
     def build_timeline(self) -> List[TimelineEvent]:
         """Return events sorted by ``event_date`` (ascending), deduplicating redundant milestones.
@@ -61,13 +57,11 @@ class CaseTimeline:
         """
         def _sort_key(e: TimelineEvent) -> tuple[int, date]:
             if e.event_date is None:
-                # Undated events sort last.
                 return (1, date.max)
             return (0, e.event_date)
 
         sorted_events = sorted(self._events, key=_sort_key)
 
-        # Deduplicate redundant events occurring on the same date with the same event type
         deduped: List[TimelineEvent] = []
         for evt in sorted_events:
             dup_idx = -1
@@ -77,11 +71,9 @@ class CaseTimeline:
                     break
 
             if dup_idx >= 0:
-                # Compare source authority and description detail
                 existing = deduped[dup_idx]
                 r_new = _DOC_PRIORITY.get(evt.source_doc_type, 99) if evt.source_doc_type else 99
                 r_old = _DOC_PRIORITY.get(existing.source_doc_type, 99) if existing.source_doc_type else 99
-                # If new is from more authoritative document, or has more detailed description at same priority
                 if r_new < r_old or (r_new == r_old and len(evt.description) > len(existing.description)):
                     deduped[dup_idx] = evt
             else:
@@ -89,7 +81,6 @@ class CaseTimeline:
 
         return deduped
 
-    # ── Violation detection ────────────────────────────────────
 
     def detect_chronological_violations(self) -> List[Dict[str, str]]:
         """Check logical ordering constraints and return violations.
@@ -109,7 +100,6 @@ class CaseTimeline:
         """
         violations: List[Dict[str, str]] = []
 
-        # Index dated events by type.
         by_type: Dict[TimelineEventType, List[TimelineEvent]] = {}
         for e in self._events:
             if e.event_date is not None:
@@ -123,7 +113,6 @@ class CaseTimeline:
 
             for e_early in earlier_events:
                 for e_later in later_events:
-                    # Both are guaranteed to have a date (filtered above).
                     assert e_early.event_date is not None
                     assert e_later.event_date is not None
                     if e_early.event_date > e_later.event_date:
@@ -154,7 +143,6 @@ class CaseTimeline:
 
         return violations
 
-    # ── Display ────────────────────────────────────────────────
 
     def get_timeline_display(self) -> List[Dict[str, Optional[str]]]:
         """Return a UI-friendly list of timeline entries.

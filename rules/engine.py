@@ -16,7 +16,6 @@ from evidence.schemas import RuleCheckResult
 class DeterministicRulesEngine:
     """Static-method collection for deterministic consumer-dispute checks."""
 
-    # ────────────── Warranty Period ──────────────
 
     @staticmethod
     def evaluate_warranty_status(
@@ -53,7 +52,7 @@ class DeterministicRulesEngine:
 
         warranty_end = purchase_date + relativedelta(months=warranty_months)
         within = defect_date <= warranty_end
-        delta = (warranty_end - defect_date).days  # positive → days remaining
+        delta = (warranty_end - defect_date).days
 
         if within:
             summary = (
@@ -82,7 +81,6 @@ class DeterministicRulesEngine:
             },
         )
 
-    # ────────────── Return Window ──────────────
 
     @staticmethod
     def evaluate_return_window(
@@ -147,7 +145,6 @@ class DeterministicRulesEngine:
             },
         )
 
-    # ────────────── Complaint Limitation Period ──────────────
 
     @staticmethod
     def evaluate_complaint_timeline(
@@ -213,7 +210,6 @@ class DeterministicRulesEngine:
             },
         )
 
-    # ────────────── Run All Checks ──────────────
 
     @staticmethod
     def run_all_checks(facts: Dict[str, Any]) -> List[RuleCheckResult]:
@@ -263,21 +259,18 @@ class DeterministicRulesEngine:
 
         results: List[RuleCheckResult] = []
 
-        # 1. Warranty
         results.append(
             DeterministicRulesEngine.evaluate_warranty_status(
                 purchase_date, defect_date, warranty_months
             )
         )
 
-        # 2. Return window
         results.append(
             DeterministicRulesEngine.evaluate_return_window(
                 delivery_date, complaint_date, window_days
             )
         )
 
-        # 3. Limitation period
         results.append(
             DeterministicRulesEngine.evaluate_complaint_timeline(
                 purchase_date, complaint_date

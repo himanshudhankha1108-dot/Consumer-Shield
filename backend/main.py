@@ -43,7 +43,6 @@ app = FastAPI(
     version="2.0.0",
 )
 
-# Enable CORS for local Streamlit / Web UI
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -61,7 +60,6 @@ async def startup_event():
     print(" 👉 Interactive API:   http://localhost:8000/docs")
     print("=" * 55 + "\n")
 
-# In-memory case storage for MVP
 CASES_STORE: Dict[str, Dict[str, Any]] = {}
 
 
@@ -187,14 +185,12 @@ async def upload_evidence(
     case = CASES_STORE[case_id]
     filename = file.filename or "uploaded_file"
 
-    # Save to temp file
     suffix = os.path.splitext(filename)[1]
     with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
         shutil.copyfileobj(file.file, tmp)
         tmp_path = tmp.name
 
     try:
-        # Ingestion: Parse file text & layout using PyMuPDF / Docling
         parsed_doc = parse_document(tmp_path)
         extracted_text = parsed_doc.get("text", "")
 
@@ -214,7 +210,6 @@ async def upload_evidence(
             matches_product = (claimed_product and any(part in lower_fname for part in claimed_product.split() if len(part) > 3)) or (claimed_category and claimed_category in lower_fname)
 
             if has_unrelated:
-                # Contradictory / Unrelated image artifact (e.g. umbrella uploaded for laptop/earphone claim)
                 doc_type = DocumentType.OTHER
                 mismatch_fact = FactItem(
                     field_name="visual_evidence_mismatch",
@@ -229,7 +224,6 @@ async def upload_evidence(
                 fact_items = [mismatch_fact]
                 is_relevant = False
             else:
-                # Legitimate photo artifact submitted by consumer (Camera photo, screenshot, media upload, or defect image)
                 doc_type = DocumentType.DEFECT_PHOTO
                 photo_fact = FactItem(
                     field_name="defect_photo",
@@ -247,7 +241,6 @@ async def upload_evidence(
             lower_fname = filename.lower()
             lower_txt = extracted_text.lower()
 
-            # Automatic document classification for unstructured uploads
             if doc_type == DocumentType.OTHER:
                 if any(k in lower_fname for k in ["invoice", "bill", "receipt", "memo"]) or "tax invoice" in lower_txt:
                     doc_type = DocumentType.INVOICE
@@ -260,10 +253,8 @@ async def upload_evidence(
                 elif any(k in lower_fname for k in ["email", "mail"]):
                     doc_type = DocumentType.EMAIL
 
-            # Structured Fact Extraction based on actual document content
             extraction_output = extract_facts_from_text(extracted_text, doc_type, filename)
 
-            # Prevent service center repair quotation from overriding invoice purchase price
             if doc_type in [DocumentType.JOB_SHEET, DocumentType.EMAIL] and ("rejection" in lower_fname or "quotation" in lower_fname or "service" in lower_fname):
                 if extraction_output.amount_paid and not extraction_output.repair_amount_demanded:
                     extraction_output.repair_amount_demanded = extraction_output.amount_paid
@@ -272,12 +263,10 @@ async def upload_evidence(
                     extraction_output.service_center = extraction_output.seller_name
                     extraction_output.seller_name = None
 
-            # Convert to FactItems
             fact_items = extraction_to_fact_items(extraction_output, doc_type, filename)
             is_relevant = len(fact_items) > 0
 
             if not is_relevant:
-                # Document analyzed has zero consumer dispute facts (e.g. lab report, homework)
                 audit_fact = FactItem(
                     field_name="document_audit",
                     value=f"Non-dispute document: No purchase, price, or warranty clauses identified in content",
@@ -293,7 +282,6 @@ async def upload_evidence(
                 for fact in fact_items:
                     case["ledger"].record_fact(fact)
 
-            # Fallback for service rejection emails missing seller_response or seller_response_date
             if doc_type in (DocumentType.EMAIL, DocumentType.JOB_SHEET):
                 has_rejection_clues = bool(extraction_output.repair_amount_demanded or extraction_output.warranty_exclusions or (extraction_output.resolution_offered and any(w in str(extraction_output.resolution_offered).lower() for w in ["reject", "denied", "payment"])))
                 if has_rejection_clues and not extraction_output.seller_response:
@@ -330,7 +318,6 @@ async def upload_evidence(
                         except Exception:
                             pass
 
-            # Feed events to timeline if dates are present
             if extraction_output.purchase_date:
                 case["timeline"].add_event(
                     TimelineEvent(
@@ -362,7 +349,6 @@ async def upload_evidence(
                     )
                 )
             if extraction_output.complaint_date:
-                # Only register COMPLAINT_RAISED if this is not a seller response/rejection email falsely extracted as complaint date
                 is_seller_rejection = doc_type in (DocumentType.EMAIL, DocumentType.JOB_SHEET) and bool(extraction_output.seller_response or extraction_output.repair_amount_demanded)
                 if not is_seller_rejection or (extraction_output.complaint_date != extraction_output.seller_response_date):
                     case["timeline"].add_event(
@@ -375,7 +361,6 @@ async def upload_evidence(
                         )
                     )
 
-            # Technician inspection / service visit event
             insp_date = extraction_output.inspection_date
             if not insp_date and doc_type in (DocumentType.JOB_SHEET, DocumentType.EMAIL):
                 insp_m = re.search(r'(?:inspected onsite by our technician on|inspected on|technician visit(?:ed)? on|inspection date:?)\s*(\d{1,2}\s+[A-Za-z]{3,9}\s+20\d\d|20\d\d[-/]\d\d[-/]\d\d)', extracted_text, re.I)
@@ -513,11 +498,9 @@ def delete_file(case_id: str, filename: str):
         raise HTTPException(status_code=404, detail="Case not found")
     case = CASES_STORE[case_id]
 
-    # Remove from uploaded files and doc types
     case["uploaded_files"] = [f for f in case["uploaded_files"] if f.get("filename") != filename]
     case["uploaded_doc_types"] = [f.get("doc_type") for f in case["uploaded_files"]]
 
-    # Purge facts from ledger
     ledger: CanonicalFactLedger = case["ledger"]
     for field_name in list(ledger._facts.keys()):
         ledger._facts[field_name] = [f for f in ledger._facts[field_name] if f.source_filename != filename]
@@ -528,7 +511,6 @@ def delete_file(case_id: str, filename: str):
         else:
             ledger._evaluate_conflicts(field_name)
 
-    # Purge events from timeline
     timeline: CaseTimeline = case["timeline"]
     timeline._events = [e for e in timeline._events if e.source_filename != filename]
 
@@ -586,23 +568,18 @@ def analyze_case(case_id: str):
     conflicts = ledger.conflicts
     timeline_events = timeline.build_timeline()
 
-    # 1. Deterministic Rules Engine Check
     rule_results = DeterministicRulesEngine.run_all_checks(resolved_facts)
 
-    # 2. Evidence Gap Analysis
     gap_analyzer = EvidenceGapAnalyzer(dispute_type=dispute_type)
     checklist = gap_analyzer.analyze(case["uploaded_doc_types"], resolved_facts, uploaded_files=case["uploaded_files"])
     missing_evidence = gap_analyzer.get_missing_evidence(checklist)
     total_score, score_breakdown = gap_analyzer.calculate_evidence_score(checklist)
 
-    # 2b. Case-Readiness Conflict Penalty
-    # Unresolved factual contradictions impair case readiness
     if conflicts:
         conflict_penalty = min(len(conflicts) * 8, 35)
         total_score = max(20, total_score - conflict_penalty)
         missing_evidence.insert(0, f"Factual Discrepancies ({len(conflicts)} Unresolved Conflicts): Score penalized by -{conflict_penalty}%. Resolve above to reach 100%.")
 
-    # 3. Dynamic Knowledge Retrieval via Hybrid RAG (Dense BGE-M3 + Sparse BM25 + RRF)
     retrieval_query = (
         f"{dispute_type.value} {resolved_facts.get('product_name', '')} "
         f"{resolved_facts.get('defect_description', '')} {resolved_facts.get('seller_response', '')} "
@@ -641,9 +618,6 @@ def analyze_case(case_id: str):
             sec_title = str(sec.get("section", "")).lower()
             src_title = str(sec.get("source_name", "")).lower()
             excerpt_txt = str(sec.get("excerpt", "")).lower()
-            # Strict Relevance Filter: Drop pre-dispatch, cancellation, and irrelevant product categories
-            # When defect occurs during the warranty term after the initial return window,
-            # drop 7-day platform return policies which weaken the warranty dispute
             if is_delivered_defect:
                 if any(k in sec_title or k in excerpt_txt for k in [
                     "cancellation & pre-dispatch", "pre-dispatch", "fashion & lifestyle", "innerwear",
@@ -659,7 +633,6 @@ def analyze_case(case_id: str):
                     "citation": sec.get("citation", ""),
                 }
             )
-        # If all were filtered, maintain baseline CPA statutory provision
         if not relevant_policies:
             relevant_policies = [
                 {
@@ -671,7 +644,6 @@ def analyze_case(case_id: str):
                 }
             ]
     else:
-        # Explicit fallback notice if retrieval is unavailable
         relevant_policies = [
             {
                 "source_name": "Consumer Protection Act, 2019 (Fallback Notice)",
@@ -682,7 +654,6 @@ def analyze_case(case_id: str):
             }
         ]
 
-    # 4. Generate Case-Readiness Report
     report_gen = CaseReportGenerator(case_id=case_id)
     report: CaseReadinessReport = report_gen.generate_report(
         resolved_facts=resolved_facts,
@@ -732,7 +703,6 @@ def case_chat(case_id: str, payload: ChatRequest):
     )
 
 
-# Mount 3D Glassmorphic Web App on Root
 WEB_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "web")
 if os.path.exists(WEB_DIR):
     app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")

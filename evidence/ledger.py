@@ -18,8 +18,6 @@ from evidence.schemas import (
     VerificationStatus,
 )
 
-# Higher index ⇒ lower priority. Used for automatic conflict resolution
-# when the user has not manually intervened.
 _SOURCE_PRIORITY: List[DocumentType] = [
     DocumentType.INVOICE,
     DocumentType.WARRANTY_CARD,
@@ -38,7 +36,6 @@ def _normalize_str(s: str) -> str:
     return s
 
 
-# ── BGE Embedding-Based Semantic Comparator ─────────────────────────
 _EMBEDDING_MODEL = None
 _EMBEDDING_CACHE: Dict[str, Any] = {}
 
@@ -92,7 +89,6 @@ def _values_agree(val1: Any, val2: Any, field_name: str = "") -> bool:
     if val1 == val2:
         return True
 
-    # Numeric comparisons
     try:
         f1, f2 = float(val1), float(val2)
         if abs(f1 - f2) < 0.01:
@@ -109,21 +105,17 @@ def _values_agree(val1: Any, val2: Any, field_name: str = "") -> bool:
     tokens1 = set(re.findall(r'[a-z0-9]+', n1))
     tokens2 = set(re.findall(r'[a-z0-9]+', n2))
 
-    # Date equivalence & reasonable manifestation windows
     if "date" in field_name:
         try:
             d1 = date_parser.parse(s1, fuzzy=True).date()
             d2 = date_parser.parse(s2, fuzzy=True).date()
             if d1 == d2:
                 return True
-            # In consumer disputes, defect manifestation date vs service diagnostic date
-            # within a 7-day inspection window represents natural event chronology
             if field_name == "defect_date" and abs((d1 - d2).days) <= 7:
                 return True
         except Exception:
             pass
 
-    # Model number matching: prefixes, SKU variants, or shared alphanumeric model code (e.g. G14, GA402, 450)
     if field_name == "model_number":
         if n1.startswith(n2) or n2.startswith(n1):
             return True
@@ -131,22 +123,17 @@ def _values_agree(val1: Any, val2: Any, field_name: str = "") -> bool:
         if shared_model_code:
             return True
 
-    # Textual attributes: product name, category, brand, service center, seller
     if field_name in ["product_name", "product_category", "brand", "service_center", "seller_name", "warranty_type"]:
-        # Substring or subset agreement
         if n1 in n2 or n2 in n1:
             return True
         if tokens1 and tokens2 and (tokens1.issubset(tokens2) or tokens2.issubset(tokens1)):
             return True
-        # Authorized service provider generic designation vs named provider
         if "authorized service provider" in n1 or "authorized service provider" in n2:
             return True
-        # Zero-shot semantic embedding similarity via BGE
         sim = _semantic_similarity(s1, s2)
         if sim >= 0.78:
             return True
 
-    # Defect descriptions and resolution terms
     if field_name in ["defect_description", "resolution_offered"]:
         kw = ["display", "screen", "motherboard", "power", "charging", "battery", "audio", "sound", "shut down", "black", "leak", "panel"]
         if {k for k in kw if k in n1} & {k for k in kw if k in n2}:
@@ -228,14 +215,12 @@ class CanonicalFactLedger:
             })
         return records
 
-    # ── Recording ───────────────────────────────────────────────
 
     def record_fact(self, fact: FactItem) -> None:
         """Append *fact* and re-evaluate conflicts for its field."""
         self._facts.setdefault(fact.field_name, []).append(fact)
         self._evaluate_conflicts(fact.field_name)
 
-    # ── Conflict evaluation (private) ──────────────────────────
 
     def _evaluate_conflicts(self, field_name: str) -> None:
         """Evaluate facts for *field_name* and update statuses.
@@ -251,28 +236,22 @@ class CanonicalFactLedger:
         if len(entries) < 2:
             return
 
-        # Check semantic agreement across entries against primary authoritative source
         primary_entry = min(entries, key=lambda e: (_source_rank(e.source_doc_type), -len(str(e.value))))
         primary_val = primary_entry.value
         all_agree = all(_values_agree(primary_val, e.value, field_name) for e in entries)
 
         if all_agree:
-            # All sources agree semantically — corroboration.
             for e in entries:
                 e.verification_status = VerificationStatus.VERIFIED
                 e.confidence = min(e.confidence + 0.05, 1.0)
-            # Clear any prior conflict for this field.
             self._conflicts.pop(field_name, None)
 
-            # Store the highest priority source value (preferring longer/more specific strings)
             if field_name == "defect_date":
-                # For defect discovery date, choose earliest manifestation date
                 try:
                     best = min(entries, key=lambda e: date_parser.parse(str(e.value), fuzzy=True).date())
                 except Exception:
                     best = min(entries, key=lambda e: (_source_rank(e.source_doc_type), -len(str(e.value))))
             elif field_name == "seller_response":
-                # Prioritize substantive denial/rejection decisions over automated ticket acknowledgements
                 rejections = [e for e in entries if any(w in str(e.value).lower() for w in ["reject", "denied", "refus", "no refund", "payment", "exclude"])]
                 if rejections:
                     best = min(rejections, key=lambda e: (_source_rank(e.source_doc_type), -len(str(e.value))))
@@ -282,7 +261,6 @@ class CanonicalFactLedger:
                 best = min(entries, key=lambda e: (_source_rank(e.source_doc_type), -len(str(e.value))))
             self._resolutions[field_name] = best.value
         else:
-            # Genuine conflict.
             for e in entries:
                 e.verification_status = VerificationStatus.CONFLICTING
 
@@ -304,13 +282,10 @@ class CanonicalFactLedger:
             )
             self._conflicts[field_name] = alert
 
-            # Auto-resolve using source-priority hierarchy (unless already
-            # manually resolved).
             if field_name not in self._resolutions:
                 best = min(entries, key=lambda e: _source_rank(e.source_doc_type))
                 self._resolutions[field_name] = best.value
 
-    # ── Manual resolution ──────────────────────────────────────
 
     def resolve_conflict(
         self,
@@ -330,7 +305,6 @@ class CanonicalFactLedger:
                 e.verification_status = VerificationStatus.USER_CONFIRMED
         return True
 
-    # ── Queries ────────────────────────────────────────────────
 
     def get_resolved_value(self, field_name: str) -> Optional[Any]:
         """Return the resolved value for *field_name*, or ``None``."""
@@ -338,7 +312,6 @@ class CanonicalFactLedger:
             return self._resolutions[field_name]
         entries = self._facts.get(field_name, [])
         if entries:
-            # No conflict / single entry — return the highest-priority source.
             best = min(entries, key=lambda e: _source_rank(e.source_doc_type))
             return best.value
         return None
@@ -362,7 +335,6 @@ class CanonicalFactLedger:
             "raw_facts_count": sum(len(v) for v in self._facts.values()),
         }
 
-    # ── Serialisation ──────────────────────────────────────────
 
     def to_dict(self) -> Dict[str, Any]:
         """Serialise the entire ledger to a plain dict."""

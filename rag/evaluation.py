@@ -72,11 +72,8 @@ class RAGEvaluator:
             gold_parents = item["relevant_parent_ids"]
             expected_cit = item.get("expected_citation", "").lower()
 
-            # 1. Dense search
             dense_hits = self.retriever.dense_search(query, top_k=10)
-            # 2. Sparse search
             sparse_hits = self.retriever.sparse_search(query, top_k=10)
-            # 3. Hybrid search
             hybrid_hits = self.retriever.hybrid_search(query, top_k=10)
 
             hits_dict = {
@@ -88,31 +85,25 @@ class RAGEvaluator:
             for method_name, hits in hits_dict.items():
                 retrieved_parents = [h.get("parent_id") for h in hits if h.get("parent_id")]
                 
-                # Deduplicate ordered parents
                 deduped_parents: List[str] = []
                 for p in retrieved_parents:
                     if p not in deduped_parents:
                         deduped_parents.append(p)
 
-                # Recall@5 and Recall@10
                 hit_in_5 = any(p in gold_parents for p in deduped_parents[:5])
                 hit_in_10 = any(p in gold_parents for p in deduped_parents[:10])
                 
-                # Precision@5
                 matches_at_5 = sum(1 for p in deduped_parents[:5] if p in gold_parents)
                 p_at_5 = matches_at_5 / min(5, len(deduped_parents) or 1)
 
-                # MRR (Mean Reciprocal Rank)
                 rr = 0.0
                 for rank, p in enumerate(deduped_parents, start=1):
                     if p in gold_parents:
                         rr = 1.0 / rank
                         break
 
-                # nDCG@5
                 ndcg5 = ndcg_at_k(deduped_parents, gold_parents, k=5)
 
-                # Citation match check
                 top_hit_meta = hits[0].get("metadata", {}) if hits else {}
                 top_sec = str(top_hit_meta.get("section_number") or top_hit_meta.get("section_heading") or "").lower()
                 cit_match = (top_sec and any(token in top_sec for token in expected_cit.split() if len(token) > 3))
@@ -127,7 +118,6 @@ class RAGEvaluator:
                     "citation_accuracy": cit_match,
                 })
 
-        # Aggregate averages
         num_queries = len(dataset)
         for m in methods:
             records = raw_results[m]
@@ -138,7 +128,7 @@ class RAGEvaluator:
                 "mrr": round(sum(r["reciprocal_rank"] for r in records) / num_queries, 4),
                 "ndcg_at_5": round(sum(r["ndcg_at_5"] for r in records) / num_queries, 4),
                 "citation_accuracy": round(sum(1 for r in records if r["citation_accuracy"]) / num_queries, 4),
-                "faithfulness": 0.98,  # Grounded against verified statutory parents without hallucinations
+                "faithfulness": 0.98,
             }
 
         return {

@@ -31,7 +31,6 @@ class CaseReportGenerator:
     def __init__(self, case_id: str) -> None:
         self.case_id = case_id
 
-    # ── Core assembly ──────────────────────────────────────────
 
     def generate_report(
         self,
@@ -77,7 +76,6 @@ class CaseReportGenerator:
             next_steps=next_steps,
         )
 
-    # ── Next-steps logic ───────────────────────────────────────
 
     @staticmethod
     def _build_next_steps(
@@ -95,8 +93,6 @@ class CaseReportGenerator:
         """
         steps: List[str] = []
 
-        # ---- 1. Missing evidence --------------------------------
-        # Map checklist item names to friendly upload instructions.
         _UPLOAD_HINTS: Dict[str, str] = {
             "invoice": "Upload the original purchase invoice or receipt showing the transaction date, amount, and seller details",
             "warranty": "Upload warranty card or document specifying warranty duration and terms",
@@ -129,10 +125,8 @@ class CaseReportGenerator:
                         f"Upload evidence for: {item.item_name}"
                     )
 
-        # ---- 2. Failed rule checks -----------------------------
         for rule in rule_results:
             if rule.rule_status == "FAILED_PRECONDITION":
-                # Give specific advice based on rule name patterns
                 name_lower = rule.rule_name.lower()
                 if "warranty" in name_lower:
                     steps.append(
@@ -147,7 +141,6 @@ class CaseReportGenerator:
                         f"Provide additional evidence for rule check: {rule.rule_name} — {rule.summary}"
                     )
             elif rule.result is False:
-                # Rule was evaluated but failed
                 name_lower = rule.rule_name.lower()
                 if "warranty" in name_lower:
                     steps.append(
@@ -158,18 +151,16 @@ class CaseReportGenerator:
                         "The return window appears to have passed. Document any exceptional circumstances that delayed your return request"
                     )
 
-        # ---- 3. Unresolved conflicts ----------------------------
         for conflict in conflicts:
             field = conflict.field
             sources = [
                 v.get("source", "unknown") for v in conflict.values
             ]
-            source_str = " and ".join(dict.fromkeys(sources))  # unique, ordered
+            source_str = " and ".join(dict.fromkeys(sources))
             steps.append(
                 f"Resolve the conflicting {field} values between your {source_str} documents"
             )
 
-        # De-duplicate while preserving order
         seen: set[str] = set()
         unique_steps: List[str] = []
         for s in steps:
@@ -179,7 +170,6 @@ class CaseReportGenerator:
 
         return unique_steps
 
-    # ── Complaint draft ────────────────────────────────────────
 
     def generate_complaint_draft(self, report: CaseReadinessReport) -> str:
         """Generate a formal consumer complaint letter template.
@@ -205,7 +195,6 @@ class CaseReportGenerator:
         repair_demanded = facts.get("repair_amount_demanded")
         service_center = facts.get("service_center")
 
-        # Fallback to timeline if purchase_date was not resolved in facts
         if purchase_date == "[Purchase Date]" and report.timeline:
             for evt in report.timeline:
                 if evt.event_type == TimelineEventType.PURCHASE and evt.event_date:
@@ -221,7 +210,6 @@ class CaseReportGenerator:
         model_str = f" (Model: {model})" if model else ""
         platform_str = f" via {platform}" if platform else ""
 
-        # Build timeline summary
         sorted_events = sorted(
             report.timeline,
             key=lambda e: (e.event_date or date.min, e.event_type.value)
@@ -232,7 +220,6 @@ class CaseReportGenerator:
 
         for evt in sorted_events:
             date_str = evt.event_date.isoformat() if evt.event_date else None
-            # Deduplicate purchase events: use the canonical purchase_date
             if evt.event_type == TimelineEventType.PURCHASE:
                 if has_purchase_event:
                     continue
@@ -241,7 +228,6 @@ class CaseReportGenerator:
                 timeline_lines.append(f"  - {display_pdate}: Purchased {product} from {seller}{platform_str}")
                 continue
 
-            # Deduplicate duplicate events on same date with similar descriptions
             evt_key = (date_str, evt.description.strip().lower()[:45])
             if evt_key in seen_events:
                 continue
@@ -252,7 +238,6 @@ class CaseReportGenerator:
 
         timeline_block = "\n".join(timeline_lines) if timeline_lines else "  [Timeline details]"
 
-        # Attachments list
         attachments: List[str] = []
         for item in report.evidence_checklist:
             if item.status == "found" and item.source_filename:
@@ -261,7 +246,6 @@ class CaseReportGenerator:
                 attachments.append(f"  - {item.item_name}")
         attachment_block = "\n".join(attachments) if attachments else "  [List of enclosed documents]"
 
-        # Separate consumer-observed symptom from service center technical diagnosis
         user_symptom = None
         tech_diagnosis = None
         inspection_date = None
@@ -289,7 +273,6 @@ class CaseReportGenerator:
             insp_date_str = f"on {inspection_date}" if inspection_date else "upon technical inspection"
             facts_narrative += f" Subsequent technical inspection by the service center ({service_center or 'Authorized Service Center'}) {insp_date_str} diagnosed the internal hardware failure as: {tech_diagnosis}."
 
-        # Service center quotation paragraph
         repair_quote_para = ""
         exclusion_reason = facts.get("warranty_exclusions")
         if repair_demanded or exclusion_reason:
@@ -303,7 +286,6 @@ class CaseReportGenerator:
                 f"Consumer Protection Act, 2019.\n"
             )
 
-        # Seller response context: Look for initial seller / platform response first
         response_para = ""
         initial_resp_text = None
         for evt in report.timeline:
@@ -325,7 +307,6 @@ class CaseReportGenerator:
                 f"This response fails to provide an operational remedy or honor consumer statutory protections.\n"
             )
 
-        # Dynamic Statutory and Warranty Policy Grounds (Strictly Generalized)
         warranty_months = facts.get("warranty_period_months", 12)
         warranty_type = facts.get("warranty_type", "Manufacturer")
         formal_defect = tech_diagnosis or defect_desc or "hardware malfunction"
@@ -362,7 +343,6 @@ class CaseReportGenerator:
             f"Section 2(11) and an 'Unfair Trade Practice' under Section 2(47)."
         )
 
-        # Dynamic RAG statutory citations from knowledge base with strict relevance & clean substantive excerpts
         rag_citations = []
         if report.relevant_policies:
             idx = 4
@@ -372,7 +352,6 @@ class CaseReportGenerator:
                 excerpt = policy.get("excerpt", "").strip()
                 citation = policy.get("citation") or f"{src_name}, {sec_name}"
 
-                # Strict relevance filter: Discard pre-dispatch, cancellation, and expired 7-day return policies for warranty disputes
                 if any(irrel in citation.lower() or irrel in excerpt.lower() for irrel in [
                     "cancellation & pre-dispatch", "pre-dispatch", "fashion & lifestyle", "innerwear",
                     "replacement window", "return window", "7-day", "7 days"
@@ -383,14 +362,12 @@ class CaseReportGenerator:
                     continue
                 rag_citations.append(citation)
 
-                # Extract clean substantive sentence (skipping markdown headings and section numbers)
                 content_lines = [
                     re.sub(r'^[#*\-\s\d\.]+', '', l).strip()
                     for l in excerpt.split("\n")
                     if l.strip() and not l.strip().startswith("#") and not re.match(r'^\d+\.\s+[A-Za-z\s&]+$', l.strip())
                 ]
                 full_text = " ".join([c for c in content_lines if len(c) > 15])
-                # Terminate cleanly on complete sentence boundaries (zero mid-sentence truncation)
                 sentences = re.split(r'(?<=[.!?])\s+', full_text)
                 selected_sentences = []
                 cur_len = 0
@@ -406,7 +383,6 @@ class CaseReportGenerator:
                 if not clean_excerpt.endswith((".", "!", "?")):
                     clean_excerpt += "."
 
-                # High linguistic variety and substantive legal analysis per provision (eliminates boilerplate loop)
                 sec_lower = sec_name.lower()
                 src_lower = src_name.lower()
                 if "product liability" in sec_lower or "84" in sec_lower or "statutory consumer rights" in sec_lower:
@@ -441,7 +417,6 @@ class CaseReportGenerator:
 
         statutory_grounds_block = "\n\n".join(statutory_grounds)
 
-        # Buyer & Seller Identity Injection
         customer_name = facts.get("customer_name") or "[Your Full Name]"
         customer_address = facts.get("customer_address") or "[Your Address]"
         customer_email = facts.get("customer_email") or "[Email Address]"
@@ -503,14 +478,12 @@ Yours faithfully,
         return letter.strip()
         return letter.strip()
 
-    # ── Serialisation ──────────────────────────────────────────
 
     @staticmethod
     def report_to_dict(report: CaseReadinessReport) -> Dict[str, Any]:
         """Serialise a CaseReadinessReport to a JSON-compatible dict."""
         return report.model_dump(mode="json")
 
-    # ── Plain-text rendering ───────────────────────────────────
 
     @staticmethod
     def format_report_text(report: CaseReadinessReport) -> str:
@@ -527,7 +500,6 @@ Yours faithfully,
             lines.append(f"Dispute Type : {report.dispute_type.value.replace('_', ' ').title()}")
         lines.append("")
 
-        # ── Score summary ──
         lines.append(f"OVERALL SCORE: {report.total_score} / {report.max_score}")
         lines.append("-" * 40)
         for dim in report.score_breakdown:
@@ -540,7 +512,6 @@ Yours faithfully,
             lines.append(f"    {dim.details}")
         lines.append("")
 
-        # ── Resolved facts ──
         lines.append("RESOLVED FACTS")
         lines.append("-" * 40)
         if report.resolved_facts:
@@ -550,7 +521,6 @@ Yours faithfully,
             lines.append("  No facts resolved yet.")
         lines.append("")
 
-        # ── Conflicts ──
         if report.conflicts:
             lines.append("⚠  CONFLICTS DETECTED")
             lines.append("-" * 40)
@@ -564,7 +534,6 @@ Yours faithfully,
                     )
             lines.append("")
 
-        # ── Timeline ──
         lines.append("CASE TIMELINE")
         lines.append("-" * 40)
         if report.timeline:
@@ -577,7 +546,6 @@ Yours faithfully,
             lines.append("  No timeline events recorded.")
         lines.append("")
 
-        # ── Evidence checklist ──
         lines.append("EVIDENCE CHECKLIST")
         lines.append("-" * 40)
         for item in report.evidence_checklist:
@@ -590,7 +558,6 @@ Yours faithfully,
                 lines.append(f"       {item.notes}")
         lines.append("")
 
-        # ── Rule results ──
         lines.append("RULE CHECK RESULTS")
         lines.append("-" * 40)
         if report.rule_results:
@@ -608,7 +575,6 @@ Yours faithfully,
             lines.append("  No rules evaluated.")
         lines.append("")
 
-        # ── Relevant policies ──
         if report.relevant_policies:
             lines.append("RELEVANT POLICIES")
             lines.append("-" * 40)
@@ -616,7 +582,6 @@ Yours faithfully,
                 lines.append(f"  • {pol.get('source', 'Unknown')}: {pol.get('text', '')[:120]}...")
             lines.append("")
 
-        # ── Missing evidence ──
         if report.missing_evidence:
             lines.append("MISSING EVIDENCE")
             lines.append("-" * 40)
@@ -624,7 +589,6 @@ Yours faithfully,
                 lines.append(f"  • {item}")
             lines.append("")
 
-        # ── Next steps ──
         if report.next_steps:
             lines.append("RECOMMENDED NEXT STEPS")
             lines.append("-" * 40)

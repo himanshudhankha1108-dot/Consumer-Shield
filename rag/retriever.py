@@ -52,7 +52,6 @@ class HybridRetriever:
         self.encoder = get_rag_encoder()
         self.qdrant = get_qdrant_client(host=qdrant_host, port=qdrant_port, path=qdrant_path)
 
-        # BM25 state
         self.bm25: Optional[BM25Okapi] = None
         self.corpus_chunks: List[Dict[str, Any]] = []
 
@@ -61,7 +60,6 @@ class HybridRetriever:
         else:
             logger.warning("BM25 index file not found at %s. Build it using rag/ingest.py", bm25_index_path)
 
-    # ──────────── Health Check ────────────
 
     def health_check(self) -> Dict[str, Any]:
         """Verify the health and operational status of all retrieval sub-systems."""
@@ -84,13 +82,11 @@ class HybridRetriever:
             "embedding_dimension": 1024,
         }
 
-    # ──────────── Embedding ────────────
 
     def embed_text(self, text: str) -> List[float]:
         """Encode query text into a normalized 1024-dimensional dense vector."""
         return self.encoder.encode(text, normalize_embeddings=True).tolist()
 
-    # ──────────── Dense Search ────────────
 
     def dense_search(
         self,
@@ -105,7 +101,6 @@ class HybridRetriever:
         results: List[Dict[str, Any]] = []
 
         try:
-            # Compatible with both qdrant-client >= 1.20 (query_points) and earlier (search)
             if hasattr(self.qdrant, "query_points"):
                 response = self.qdrant.query_points(
                     collection_name=self.collection_name,
@@ -143,7 +138,6 @@ class HybridRetriever:
 
         return results
 
-    # ──────────── Sparse / BM25 Search ────────────
 
     def sparse_search(
         self, query: str, top_k: int = 10
@@ -177,7 +171,6 @@ class HybridRetriever:
             )
         return results
 
-    # ──────────── Reciprocal Rank Fusion ────────────
 
     @staticmethod
     def reciprocal_rank_fusion(
@@ -215,14 +208,12 @@ class HybridRetriever:
                 fused[cid]["sparse_rank"] = rank
             fused[cid]["rrf_score"] += 1.0 / (k + rank)
 
-        # Update final score to rrf_score
         for item in fused.values():
             item["score"] = item["rrf_score"]
 
         merged = sorted(fused.values(), key=lambda d: d["score"], reverse=True)
         return merged
 
-    # ──────────── Hybrid Search ────────────
 
     def hybrid_search(
         self,
@@ -237,7 +228,6 @@ class HybridRetriever:
         fused = self.reciprocal_rank_fusion(dense, sparse, k=rrf_k)
         return fused[:top_k]
 
-    # ──────────── Temporal Filtering ────────────
 
     @staticmethod
     def temporal_filter(
@@ -254,7 +244,6 @@ class HybridRetriever:
             eff_from = meta.get("effective_from")
             eff_until = meta.get("effective_until")
 
-            # Parse strings to date if needed
             if isinstance(eff_from, str):
                 try:
                     eff_from = date.fromisoformat(eff_from[:10])
@@ -267,19 +256,16 @@ class HybridRetriever:
                 except ValueError:
                     eff_until = None
 
-            # If no effective_from, consider generally applicable
             if eff_from is None:
                 filtered.append(item)
                 continue
 
-            # Temporal rule validation
             if eff_from <= reference_date:
                 if eff_until is None or eff_until >= reference_date:
                     filtered.append(item)
 
         return filtered
 
-    # ──────────── Parent Context Recovery & Citations ────────────
 
     def retrieve_context(
         self,
@@ -294,7 +280,6 @@ class HybridRetriever:
         if reference_date:
             raw_results = self.temporal_filter(raw_results, reference_date)
 
-        # Deduplicate by parent_id so the LLM gets full section context
         seen_parents: set = set()
         deduped_sections: List[Dict[str, Any]] = []
 
@@ -329,7 +314,6 @@ class HybridRetriever:
             "raw_hits_count": len(raw_results),
         }
 
-    # ──────────── Helpers ────────────
 
     @staticmethod
     def _build_qdrant_filter(filters: Dict[str, Any]) -> Filter:

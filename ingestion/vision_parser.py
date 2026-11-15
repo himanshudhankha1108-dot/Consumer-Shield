@@ -13,8 +13,6 @@ from evidence.schemas import VisionExtractionOutput
 from backend.config import get_instructor_client, VISION_MODEL
 
 
-# ────────────────── System Prompt ──────────────────
-
 VISION_SYSTEM_PROMPT = (
     "You are a product damage assessment system. "
     "Describe ONLY what is visually observable. "
@@ -24,21 +22,17 @@ VISION_SYSTEM_PROMPT = (
 )
 
 
-# ────────────────── Helper ──────────────────
-
 def _image_to_data_url(image_path: str) -> str:
     """Read an image file, base64-encode it, and return a data-URL string."""
     mime_type, _ = mimetypes.guess_type(image_path)
     if mime_type is None:
-        mime_type = "image/jpeg"  # safe default
+        mime_type = "image/jpeg"
 
     with open(image_path, "rb") as fh:
         b64 = base64.b64encode(fh.read()).decode("utf-8")
 
     return f"data:{mime_type};base64,{b64}"
 
-
-# ────────────────── Public API ──────────────────
 
 def analyze_product_image(image_path: str) -> VisionExtractionOutput:
     """Analyse a product / defect photo using Grok Vision.
