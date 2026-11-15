@@ -38,7 +38,7 @@ def _image_to_data_url(image_path: str) -> str:
     return f"data:{mime_type};base64,{b64}"
 
 
-def _analyze_with_gemini(image_path: str) -> Optional[VisionExtractionSchema]:
+def _analyze_with_gemini(image_path: str, expected_product: Optional[str] = None) -> Optional[VisionExtractionSchema]:
     api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
     if not api_key:
         return None
@@ -73,11 +73,18 @@ def _analyze_with_gemini(image_path: str) -> Optional[VisionExtractionSchema]:
             },
         )
         parsed = VisionClassification.model_validate_json(response.text)
+        is_match = None
+        if expected_product and expected_product.strip():
+            obj_lower = (parsed.detected_object_name or "").lower()
+            exp_lower = expected_product.lower()
+            is_match = any(word in exp_lower for word in obj_lower.split() if len(word) > 3)
+
         return VisionExtractionSchema(
             is_relevant_to_case=parsed.is_consumer_electronic,
             detected_primary_object=parsed.detected_object_name,
             defect_description=parsed.defect_description,
             is_consumer_electronic=parsed.is_consumer_electronic,
+            is_product_match=is_match,
         )
     except Exception:
         return None
@@ -117,7 +124,7 @@ def _analyze_with_vlm_instructor(image_path: str) -> Optional[VisionExtractionSc
         return None
 
 
-def _zero_shot_clip_classification(image_path: str) -> VisionExtractionSchema:
+def _zero_shot_clip_classification(image_path: str, expected_product: Optional[str] = None) -> VisionExtractionSchema:
     try:
         from PIL import Image
         img = Image.open(image_path).convert("RGB")
@@ -154,13 +161,32 @@ def _zero_shot_clip_classification(image_path: str) -> VisionExtractionSchema:
                 detected_primary_object=obj_name,
                 defect_description=None,
                 is_consumer_electronic=False,
+                is_product_match=False,
+                product_match_confidence=0.0,
             )
+
+        is_match = None
+        match_conf = None
+        if expected_product and expected_product.strip():
+            clean_expected = expected_product.strip()
+            match_labels = [
+                f"a photo of {clean_expected}",
+                "a photo of a completely different product or unrelated object",
+            ]
+            match_preds = classifier(img, candidate_labels=match_labels)
+            for mp in match_preds:
+                if mp["label"] == match_labels[0]:
+                    match_conf = float(mp["score"])
+                    is_match = match_conf >= 0.35
+                    break
 
         return VisionExtractionSchema(
             is_relevant_to_case=True,
             detected_primary_object=obj_name,
             defect_description=f"{obj_name} hardware under forensic visual examination",
             is_consumer_electronic=True,
+            is_product_match=is_match,
+            product_match_confidence=match_conf,
         )
     except Exception:
         return VisionExtractionSchema(
@@ -168,6 +194,8 @@ def _zero_shot_clip_classification(image_path: str) -> VisionExtractionSchema:
             detected_primary_object="Unidentified Object",
             defect_description=None,
             is_consumer_electronic=False,
+            is_product_match=False,
+            product_match_confidence=0.0,
         )
 
 
@@ -175,7 +203,7 @@ def analyze_product_image(image_path: str, expected_product: Optional[str] = Non
     if not os.path.isfile(image_path):
         raise FileNotFoundError(f"Image not found: {image_path}")
 
-    gemini_res = _analyze_with_gemini(image_path)
+    gemini_res = _analyze_with_gemini(image_path, expected_product=expected_product)
     if gemini_res is not None:
         return gemini_res
 
@@ -183,4 +211,4 @@ def analyze_product_image(image_path: str, expected_product: Optional[str] = Non
     if vlm_res is not None:
         return vlm_res
 
-    return _zero_shot_clip_classification(image_path)
+    return _zero_shot_clip_classification(image_path, expected_product=expected_product)

@@ -145,6 +145,8 @@ class VisionExtractionSchema(BaseModel):
         description="Only extract if is_relevant_to_case is True. Otherwise, leave null."
     )
     is_consumer_electronic: Optional[bool] = None
+    is_product_match: Optional[bool] = None
+    product_match_confidence: Optional[float] = None
 
 
 class VisionExtractionOutput(BaseModel):

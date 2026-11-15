@@ -387,15 +387,13 @@ async def upload_evidence(
 
                 is_mismatch = False
                 mismatch_note = ""
-                if expected_prod:
-                    exp_lower = str(expected_prod).lower()
-                    det_lower = primary_obj.lower()
-                    if ("iphone" in exp_lower or "phone" in exp_lower or "mobile" in exp_lower) and ("earbud" in det_lower or "headphone" in det_lower):
-                        is_mismatch = True
-                        mismatch_note = f"Defect photo shows {primary_obj}, which does not match case product '{expected_prod}'"
-                    elif ("tv" in exp_lower or "television" in exp_lower) and ("earbud" in det_lower or "phone" in det_lower):
-                        is_mismatch = True
-                        mismatch_note = f"Defect photo shows {primary_obj}, which does not match case product '{expected_prod}'"
+                if expected_prod and extracted_data.is_product_match is False:
+                    is_mismatch = True
+                    conf_pct = int((extracted_data.product_match_confidence or 0.0) * 100)
+                    mismatch_note = (
+                        f"Visual discrepancy: Uploaded photo shows {primary_obj}, "
+                        f"which does not match declared product '{expected_prod}' (match confidence: {conf_pct}%)"
+                    )
 
                 if is_mismatch:
                     doc_type = DocumentType.OTHER
