@@ -178,7 +178,20 @@ class CaseReportGenerator:
         letter.  Placeholders are left for the consumer's personal
         details.
         """
-        facts = report.resolved_facts
+        facts = report.resolved_facts or {}
+        if report.total_score == 0 and not any(facts.get(k) for k in ["product_name", "amount_paid", "seller_name"]):
+            return (
+                "INSUFFICIENT EVIDENCE FOR GRIEVANCE FILING\n\n"
+                "Status: Case Readiness is 0% (Awaiting Documents)\n\n"
+                "A formal legal notice cannot be drafted without verified transaction evidence.\n"
+                "To generate an actionable legal notice, please upload:\n"
+                "  1. Proof of Purchase (Tax Invoice / Order Receipt)\n"
+                "  2. Warranty Card or Return Policy\n"
+                "  3. Written Grievance or Denial from Seller/Brand\n\n"
+                "Once uploaded, the engine will automatically extract legal grounds under the "
+                "Consumer Protection Act, 2019 and generate a complete, personalized legal notice."
+            )
+
         product = facts.get("product_name", "[Product Name]")
         brand = facts.get("brand", "[Brand]")
         model = facts.get("model_number", "")
