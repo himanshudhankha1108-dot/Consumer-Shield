@@ -362,7 +362,8 @@ async def upload_evidence(
         if is_image:
             from ingestion.vision_parser import analyze_product_image
 
-            extracted_data = analyze_product_image(tmp_path)
+            expected_prod = case.get("product") or case["ledger"].resolved_facts.get("product_name")
+            extracted_data = analyze_product_image(tmp_path, expected_product=expected_prod)
 
             if not extracted_data.is_relevant_to_case:
                 doc_type = DocumentType.OTHER
@@ -381,21 +382,50 @@ async def upload_evidence(
                 fact_items = [mismatch_fact]
                 is_relevant = False
             else:
-                doc_type = DocumentType.DEFECT_PHOTO
                 primary_obj = extracted_data.detected_primary_object or "Consumer Hardware"
                 desc = extracted_data.defect_description or "Physical damage or defect verified via visual inspection"
-                photo_fact = FactItem(
-                    field_name="defect_photo",
-                    value=f"Photographic Defect Evidence: {primary_obj} ({desc})",
-                    source_doc_type=DocumentType.DEFECT_PHOTO,
-                    source_filename=filename,
-                    confidence=0.95,
-                    raw_snippet=f"Visual evidence verified by forensic analysis: {desc}",
-                    verification_status=VerificationStatus.VERIFIED,
-                )
-                case["ledger"].record_fact(photo_fact)
-                fact_items = [photo_fact]
-                is_relevant = True
+
+                is_mismatch = False
+                mismatch_note = ""
+                if expected_prod:
+                    exp_lower = str(expected_prod).lower()
+                    det_lower = primary_obj.lower()
+                    if ("iphone" in exp_lower or "phone" in exp_lower or "mobile" in exp_lower) and ("earbud" in det_lower or "headphone" in det_lower):
+                        is_mismatch = True
+                        mismatch_note = f"Defect photo shows {primary_obj}, which does not match case product '{expected_prod}'"
+                    elif ("tv" in exp_lower or "television" in exp_lower) and ("earbud" in det_lower or "phone" in det_lower):
+                        is_mismatch = True
+                        mismatch_note = f"Defect photo shows {primary_obj}, which does not match case product '{expected_prod}'"
+
+                if is_mismatch:
+                    doc_type = DocumentType.OTHER
+                    red_flag_val = f"Red Flag: Product Discrepancy Detected ({mismatch_note})"
+                    mismatch_fact = FactItem(
+                        field_name="visual_product_mismatch",
+                        value=red_flag_val,
+                        source_doc_type=DocumentType.OTHER,
+                        source_filename=filename,
+                        confidence=0.20,
+                        raw_snippet=mismatch_note,
+                        verification_status=VerificationStatus.CONFLICTING,
+                    )
+                    case["ledger"].record_fact(mismatch_fact)
+                    fact_items = [mismatch_fact]
+                    is_relevant = False
+                else:
+                    doc_type = DocumentType.DEFECT_PHOTO
+                    photo_fact = FactItem(
+                        field_name="defect_photo",
+                        value=f"Photographic Defect Evidence: {primary_obj} ({desc})",
+                        source_doc_type=DocumentType.DEFECT_PHOTO,
+                        source_filename=filename,
+                        confidence=0.95,
+                        raw_snippet=f"Visual evidence verified by forensic analysis: {desc}",
+                        verification_status=VerificationStatus.VERIFIED,
+                    )
+                    case["ledger"].record_fact(photo_fact)
+                    fact_items = [photo_fact]
+                    is_relevant = True
         else:
             lower_fname = filename.lower()
             lower_txt = extracted_text.lower()
@@ -615,7 +645,8 @@ def resolve_conflict(case_id: str, payload: ResolveConflictRequest):
     if case_id not in CASES_STORE:
         raise HTTPException(status_code=404, detail="Case not found")
 
-    ledger: CanonicalFactLedger = CASES_STORE[case_id]["ledger"]
+    case = CASES_STORE[case_id]
+    ledger: CanonicalFactLedger = case["ledger"]
     success = ledger.resolve_conflict(
         field_name=payload.field_name,
         chosen_value=payload.chosen_value,
@@ -624,10 +655,36 @@ def resolve_conflict(case_id: str, payload: ResolveConflictRequest):
     if not success:
         raise HTTPException(status_code=400, detail="Unable to resolve conflict for specified field")
 
+    gap_analyzer = EvidenceGapAnalyzer(dispute_type=case["dispute_type"])
+    checklist = gap_analyzer.analyze(
+        case["uploaded_doc_types"],
+        ledger.resolved_facts,
+        uploaded_files=case["uploaded_files"]
+    )
+    missing_evidence = gap_analyzer.get_missing_evidence(checklist)
+    total_score, score_breakdown = gap_analyzer.calculate_evidence_score(checklist)
+
+    active_conflicts = ledger.conflicts
+    if active_conflicts:
+        conflict_penalty = min(len(active_conflicts) * 8, 35)
+        total_score = max(20, total_score - conflict_penalty)
+        missing_evidence.insert(0, f"Factual Discrepancies ({len(active_conflicts)} Unresolved Conflicts): Score penalized by -{conflict_penalty}%. Resolve above to reach 100%.")
+
+    if "analysis_result" in case and case["analysis_result"]:
+        case["analysis_result"]["total_score"] = total_score
+        case["analysis_result"]["score_breakdown"] = score_breakdown
+        case["analysis_result"]["missing_evidence"] = missing_evidence
+        case["analysis_result"]["conflicts"] = [
+            {"field": c.field, "options": c.values} for c in active_conflicts
+        ]
+
     return {
         "status": "resolved",
         "field_name": payload.field_name,
         "resolved_value": payload.chosen_value,
+        "total_score": total_score,
+        "score_breakdown": [d.model_dump() for d in score_breakdown],
+        "missing_evidence": missing_evidence,
         "all_facts": [
             {
                 "field": f.field_name,
@@ -646,7 +703,7 @@ def resolve_conflict(case_id: str, payload: ResolveConflictRequest):
                 "field": c.field,
                 "options": c.values,
             }
-            for c in ledger.conflicts
+            for c in active_conflicts
         ],
     }
 

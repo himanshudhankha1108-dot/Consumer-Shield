@@ -1,29 +1,33 @@
-"""
-ConsumerShield — Vision Parser
-Uses Grok Vision (xAI) via instructor to analyse product/defect photos
-and return structured VisionExtractionOutput.
-"""
 from __future__ import annotations
 
 import base64
 import mimetypes
 import os
+from typing import Optional
 
-from evidence.schemas import VisionExtractionOutput, VisionExtractionSchema
+from evidence.schemas import VisionExtractionSchema, VisionClassification
 from backend.config import get_instructor_client, VISION_MODEL
-
 
 VISION_SYSTEM_PROMPT = (
     "You are a strict forensic image analyst. Analyze the pixels of this image objectively. "
     "Do NOT assume the image contains a defect just because you are asked to look for one. "
     "First, identify the primary object. If the image is a random unrelated object "
-    "(like an umbrella, coffee mug, or pet), set is_relevant_to_case to False and return immediately. "
+    "(like an umbrella, coffee mug, pet, or food), set is_relevant_to_case to False and return immediately. "
     "Only extract defect details if you visually confirm a relevant product."
 )
 
+_CLIP_PIPELINE = None
+
+
+def _get_clip_classifier():
+    global _CLIP_PIPELINE
+    if _CLIP_PIPELINE is None:
+        from transformers import pipeline
+        _CLIP_PIPELINE = pipeline("zero-shot-image-classification", model="openai/clip-vit-base-patch32")
+    return _CLIP_PIPELINE
+
 
 def _image_to_data_url(image_path: str) -> str:
-    """Read an image file, base64-encode it, and return a data-URL string without any filename metadata."""
     mime_type, _ = mimetypes.guess_type(image_path)
     if mime_type is None:
         mime_type = "image/jpeg"
@@ -34,95 +38,54 @@ def _image_to_data_url(image_path: str) -> str:
     return f"data:{mime_type};base64,{b64}"
 
 
-def _fallback_pixel_classification(image_path: str) -> VisionExtractionSchema:
-    """Classify raw image pixels locally using vision classifier without filename metadata."""
+def _analyze_with_gemini(image_path: str) -> Optional[VisionExtractionSchema]:
+    api_key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not api_key:
+        return None
+
     try:
-        from PIL import Image
-        import torch
-        from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
-        weights = MobileNet_V3_Small_Weights.DEFAULT
-        model = mobilenet_v3_small(weights=weights).eval()
-        preprocess = weights.transforms()
-        img = Image.open(image_path).convert("RGB")
-        batch = preprocess(img).unsqueeze(0)
-        with torch.no_grad():
-            preds = model(batch).squeeze(0).softmax(0)
-        top5_prob, top5_catid = torch.topk(preds, 5)
-        categories = weights.meta["categories"]
-        top_preds = [(categories[top5_catid[i]], float(top5_prob[i].item())) for i in range(5)]
+        from google import genai
+        from google.genai import types
 
-        unrelated_classes = {
-            "mousetrap", "umbrella", "parasol", "mountain tent", "tent", "bathing cap", "crash helmet",
-            "football helmet", "bicycle helmet", "helmet", "knee pad", "sunglass", "sunglasses",
-            "wok", "frying pan", "pot", "pan", "cup", "mug", "plate", "cat", "dog", "bird",
-            "pizza", "cheeseburger", "hotdog", "ice cream", "espresso", "alp", "cliff",
-            "valley", "seashore", "flower", "daisy", "sports car", "convertible", "volcano",
-            "coral reef", "jellyfish", "balloon", "teddy", "comic book", "monarch", "mushroom",
-            "sock", "shoe", "sandal", "loafer", "boot", "backpack", "handbag", "purse", "wallet"
-        }
-        for label, prob in top_preds[:3]:
-            if prob > 0.05 and any(u in label.lower() for u in unrelated_classes):
-                return VisionExtractionSchema(
-                    is_relevant_to_case=False,
-                    detected_primary_object=label.title(),
-                    defect_description=None
-                )
+        client = genai.Client(api_key=api_key)
+        mime_type, _ = mimetypes.guess_type(image_path)
+        mime_type = mime_type or "image/jpeg"
 
-        ELECTRONIC_CLASSES = {
-            "cellular telephone", "telephone", "computer", "laptop", "desktop computer",
-            "monitor", "screen", "television", "tv", "loudspeaker", "speaker", "microphone",
-            "modem", "keyboard", "computer mouse", "radio", "ipod", "cassette", "cd player", "disc",
-            "tape", "fan", "heater", "refrigerator", "washer", "microwave", "toaster",
-            "vacuum", "drier", "iron", "dishwasher", "switch", "plug", "socket", "drill", "remote"
-        }
-        has_electronic = any(any(e in label.lower() for e in ELECTRONIC_CLASSES) for label, _ in top_preds)
-        primary_label = top_preds[0][0].title()
+        with open(image_path, "rb") as fh:
+            img_bytes = fh.read()
 
-        if any(u in primary_label.lower() for u in unrelated_classes):
-            return VisionExtractionSchema(
-                is_relevant_to_case=False,
-                detected_primary_object=primary_label,
-                defect_description=None
-            )
+        prompt = (
+            "Analyze the raw pixels of this photo objectively. Identify the primary object. "
+            "Determine if it is a consumer electronic device or appliance (such as phone, laptop, TV, audio, earbud). "
+            "Return structured output strictly."
+        )
 
-        if has_electronic:
-            return VisionExtractionSchema(
-                is_relevant_to_case=True,
-                detected_primary_object=primary_label,
-                defect_description="Hardware component or display surface under visual inspection"
-            )
-
-        if not has_electronic and top_preds[0][1] > 0.10:
-            return VisionExtractionSchema(
-                is_relevant_to_case=False,
-                detected_primary_object=primary_label,
-                defect_description=None
-            )
-
+        response = client.models.generate_content(
+            model="gemini-1.5-flash",
+            contents=[
+                types.Part.from_bytes(data=img_bytes, mime_type=mime_type),
+                prompt,
+            ],
+            config={
+                "response_mime_type": "application/json",
+                "response_schema": VisionClassification,
+                "temperature": 0.0,
+            },
+        )
+        parsed = VisionClassification.model_validate_json(response.text)
         return VisionExtractionSchema(
-            is_relevant_to_case=True,
-            detected_primary_object=primary_label,
-            defect_description=None
+            is_relevant_to_case=parsed.is_consumer_electronic,
+            detected_primary_object=parsed.detected_object_name,
+            defect_description=parsed.defect_description,
+            is_consumer_electronic=parsed.is_consumer_electronic,
         )
     except Exception:
-        return VisionExtractionSchema(
-            is_relevant_to_case=False,
-            detected_primary_object="Unidentified Object",
-            defect_description=None
-        )
+        return None
 
 
-def analyze_product_image(image_path: str) -> VisionExtractionSchema:
-    """Analyse a product / defect photo blindly using pure pixels and strict guardrails.
-
-    Filename is strictly blinded from the LLM/VLM prompt.
-    """
-    if not os.path.isfile(image_path):
-        raise FileNotFoundError(f"Image not found: {image_path}")
-
-    data_url = _image_to_data_url(image_path)
-
+def _analyze_with_vlm_instructor(image_path: str) -> Optional[VisionExtractionSchema]:
     try:
+        data_url = _image_to_data_url(image_path)
         client = get_instructor_client()
         result = client.chat.completions.create(
             model=VISION_MODEL,
@@ -151,4 +114,73 @@ def analyze_product_image(image_path: str) -> VisionExtractionSchema:
         )
         return result
     except Exception:
-        return _fallback_pixel_classification(image_path)
+        return None
+
+
+def _zero_shot_clip_classification(image_path: str) -> VisionExtractionSchema:
+    try:
+        from PIL import Image
+        img = Image.open(image_path).convert("RGB")
+        classifier = _get_clip_classifier()
+
+        candidates = [
+            ("a photo of a smartphone, mobile phone, or cell phone", "Smartphone", True),
+            ("a photo of a laptop, desktop computer, or monitor", "Laptop Computer", True),
+            ("a photo of a television or smart TV display", "Television", True),
+            ("a photo of wireless earbuds, headphones, or earphones", "Wireless Earbuds", True),
+            ("a photo of a consumer household appliance (refrigerator, washing machine, microwave, air conditioner)", "Home Appliance", True),
+            ("a photo of an umbrella or parasol", "Umbrella", False),
+            ("a photo of a mousetrap or rodent pest trap", "Mousetrap", False),
+            ("a photo of a domestic animal, dog, cat, or pet", "Pet / Animal", False),
+            ("a photo of food, meal, fruit, or beverage", "Food / Beverage", False),
+            ("a photo of clothing, shoes, footwear, or apparel", "Footwear / Apparel", False),
+            ("a photo of trees, flowers, nature, or outdoor scenery", "Nature / Landscape", False),
+            ("a photo of an everyday non-electronic household item or hand tool", "Non-electronic Item", False),
+            ("a photo of a printed paper document, tax invoice, or receipt", "Paper Document", True),
+        ]
+
+        labels = [c[0] for c in candidates]
+        preds = classifier(img, candidate_labels=labels)
+        top = preds[0]
+        label_map = {c[0]: c for c in candidates}
+        matched = label_map[top["label"]]
+
+        is_electronic = matched[2]
+        obj_name = matched[1]
+
+        if not is_electronic:
+            return VisionExtractionSchema(
+                is_relevant_to_case=False,
+                detected_primary_object=obj_name,
+                defect_description=None,
+                is_consumer_electronic=False,
+            )
+
+        return VisionExtractionSchema(
+            is_relevant_to_case=True,
+            detected_primary_object=obj_name,
+            defect_description=f"{obj_name} hardware under forensic visual examination",
+            is_consumer_electronic=True,
+        )
+    except Exception:
+        return VisionExtractionSchema(
+            is_relevant_to_case=False,
+            detected_primary_object="Unidentified Object",
+            defect_description=None,
+            is_consumer_electronic=False,
+        )
+
+
+def analyze_product_image(image_path: str, expected_product: Optional[str] = None) -> VisionExtractionSchema:
+    if not os.path.isfile(image_path):
+        raise FileNotFoundError(f"Image not found: {image_path}")
+
+    gemini_res = _analyze_with_gemini(image_path)
+    if gemini_res is not None:
+        return gemini_res
+
+    vlm_res = _analyze_with_vlm_instructor(image_path)
+    if vlm_res is not None:
+        return vlm_res
+
+    return _zero_shot_clip_classification(image_path)

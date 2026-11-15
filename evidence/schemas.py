@@ -120,9 +120,22 @@ class CaseExtractionOutput(BaseModel):
     )
 
 
+class VisionClassification(BaseModel):
+    is_consumer_electronic: bool = Field(
+        description="True ONLY if the image clearly shows a consumer electronic device like a phone, laptop, TV, or earbud. False if it is a random object (umbrella, mousetrap, food, etc.)."
+    )
+    detected_object_name: str = Field(
+        description="The primary object in the photo."
+    )
+    defect_description: Optional[str] = Field(
+        default=None,
+        description="Only extract if is_consumer_electronic is True. Otherwise, leave null."
+    )
+
+
 class VisionExtractionSchema(BaseModel):
     is_relevant_to_case: bool = Field(
-        description="True ONLY IF the image depicts a relevant consumer document (invoice, warranty) or an electronic product/appliance. False if it is a random object (e.g., umbrella, nature, selfie)."
+        description="True ONLY IF the image depicts a relevant consumer document or an electronic product/appliance. False if it is a random object (e.g., umbrella, nature, selfie)."
     )
     detected_primary_object: str = Field(
         description="What is the main object in this photo? (e.g., 'Umbrella', 'Laptop Screen', 'Paper Invoice')"
@@ -131,6 +144,7 @@ class VisionExtractionSchema(BaseModel):
         default=None,
         description="Only extract if is_relevant_to_case is True. Otherwise, leave null."
     )
+    is_consumer_electronic: Optional[bool] = None
 
 
 class VisionExtractionOutput(BaseModel):

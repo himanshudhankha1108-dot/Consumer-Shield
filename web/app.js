@@ -394,6 +394,17 @@ function renderConflictBanner() {
             if (resData.conflicts) CurrentCase.conflicts = resData.conflicts;
             if (resData.canonical_facts) CurrentCase.canonical_facts = resData.canonical_facts;
             if (resData.resolved_facts) CurrentCase.resolved_facts = resData.resolved_facts;
+            if (resData.total_score !== undefined) CurrentCase.score = resData.total_score;
+            if (resData.score_breakdown) {
+              CurrentCase.score_breakdown = resData.score_breakdown;
+              CurrentCase.dimensions = resData.score_breakdown.map(d => ({
+                name: d.dimension,
+                score: d.actual_score,
+                max: d.max_score,
+                color: d.actual_score === d.max_score ? "text-emerald-400" : (d.actual_score > 0 ? "text-amber-400" : "text-rose-400")
+              }));
+            }
+            if (resData.missing_evidence) CurrentCase.missing_evidence = resData.missing_evidence;
           }
         } catch (e) {
           console.warn("Backend conflict resolve warning:", e);
@@ -408,6 +419,12 @@ function renderConflictBanner() {
         }
 
         CurrentCase.conflicts = (CurrentCase.conflicts || []).filter(c => c.field !== field);
+
+        if (CurrentCase.score_breakdown && CurrentCase.score_breakdown.length > 0) {
+          const baseScore = CurrentCase.score_breakdown.reduce((sum, d) => sum + (d.actual_score || 0), 0);
+          const remainingPenalty = Math.min((CurrentCase.conflicts || []).length * 8, 35);
+          CurrentCase.score = Math.max(20, baseScore - remainingPenalty);
+        }
 
         if (CurrentCase.canonical_facts) {
           for (const cf of CurrentCase.canonical_facts) {
