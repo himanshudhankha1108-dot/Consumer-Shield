@@ -318,6 +318,26 @@ function updateHeaderStats() {
   if (statWarranty) statWarranty.textContent = CurrentCase.warrantyText;
   if (statFiles) statFiles.textContent = CurrentCase.filesCountText;
   if (statScoreText) statScoreText.textContent = `${CurrentCase.score} / 100`;
+
+  const statMissing = document.getElementById("stat-missing-evidence");
+  if (statMissing) {
+    const missingItems = (CurrentCase.checklist || []).filter(c => c.status === "missing");
+    const count = missingItems.length;
+    if (count === 0 && (CurrentCase.checklist || []).length > 0) {
+      statMissing.textContent = "All Evidence Complete";
+      statMissing.className = "text-xs text-emerald-400 font-medium";
+    } else if (count === 1) {
+      statMissing.textContent = "1 Missing Evidence Item";
+      statMissing.className = "text-xs text-amber-400 font-medium";
+    } else if (count > 1) {
+      statMissing.textContent = `${count} Missing Evidence Items`;
+      statMissing.className = "text-xs text-rose-400 font-medium";
+    } else {
+      statMissing.textContent = "Awaiting Evidence Upload";
+      statMissing.className = "text-xs text-slate-400 font-medium";
+    }
+  }
+
   renderConflictBanner();
 }
 
