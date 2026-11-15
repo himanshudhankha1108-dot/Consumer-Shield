@@ -107,11 +107,18 @@ Existing legal chatbots offer generic legal text or write template complaints, b
 
 ---
 
-## ⚡ Quick Start Guide
+## ⚡ System Requirements & Quick Start Guide
 
-### 1. Prerequisites
+### 1. Hardware & OS Specifications
+- **Operating System**: macOS (Intel or Apple Silicon M1/M2/M3), Ubuntu 20.04+, or Windows 10/11 (WSL2 recommended)
+- **Python Version**: Python 3.10 to 3.12+ (tested on Python 3.15)
+- **RAM**: Minimum 8 GB RAM (16 GB recommended for in-memory BGE-M3 and CLIP embeddings)
+- **Disk Space**: At least 3 GB free disk space (for local HuggingFace cache and Qdrant database)
+- **Processor**: Modern Multi-Core CPU (Apple Silicon Metal MPS acceleration or CUDA GPU optional)
+
+### 2. Prerequisites & Dependencies
 - Python 3.10+
-- (Optional) Docker for local Qdrant container
+- (Optional) Docker for local Qdrant container (fallback persistent local storage used automatically)
 
 ### 2. Setup Virtual Environment & Install Dependencies
 ```bash
