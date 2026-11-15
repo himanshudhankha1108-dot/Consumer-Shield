@@ -53,6 +53,9 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
+    seed_demo_case("CS-2026-NK9")
+    seed_demo_case("CS-2026-SAM")
+    seed_demo_case("CS-2026-X4")
     print("\n" + "=" * 55)
     print(" 🛡️  ConsumerShield 2.0 Web Platform is LIVE!")
     print(" 👉 Clickable App URL: http://localhost:8000")
@@ -61,6 +64,166 @@ async def startup_event():
     print("=" * 55 + "\n")
 
 CASES_STORE: Dict[str, Dict[str, Any]] = {}
+
+
+def seed_demo_case(case_id: str) -> Optional[Dict[str, Any]]:
+    normalized_id = case_id.upper()
+    if "NK9" in normalized_id or "NIKE" in normalized_id:
+        nike_ledger = CanonicalFactLedger()
+        nike_timeline = CaseTimeline()
+        nike_facts = [
+            ("product_name", "Nike Air Zoom Pegasus (Size 9)", DocumentType.INVOICE, "Order_Invoice.pdf", 0.99),
+            ("seller_name", "FashionTrend India (Flipkart)", DocumentType.INVOICE, "Order_Invoice.pdf", 0.98),
+            ("purchase_date", "2026-02-05", DocumentType.INVOICE, "Order_Invoice.pdf", 0.99),
+            ("delivery_date", "2026-02-08", DocumentType.INVOICE, "Order_Invoice.pdf", 0.98),
+            ("amount_paid", 7995.0, DocumentType.INVOICE, "Order_Invoice.pdf", 0.99),
+            ("defect_date", "2026-02-08", DocumentType.DEFECT_PHOTO, "Unboxing_Photo.jpg", 0.97),
+            ("defect_description", "Received unbranded counterfeit shoes instead of Nike", DocumentType.DEFECT_PHOTO, "Unboxing_Photo.jpg", 0.95),
+            ("complaint_date", "2026-02-09", DocumentType.EMAIL, "Customer_Complaint.eml", 0.98),
+            ("seller_response", "Return request rejected: Customer claim unverified", DocumentType.EMAIL, "Customer_Complaint.eml", 0.95),
+            ("customer_name", "Rahul Sharma", DocumentType.INVOICE, "Order_Invoice.pdf", 0.99),
+            ("customer_address", "Flat 402, Green Glen Layout, Bellandur, Bengaluru", DocumentType.INVOICE, "Order_Invoice.pdf", 0.95),
+            ("customer_phone", "+91-9876543210", DocumentType.INVOICE, "Order_Invoice.pdf", 0.95),
+            ("customer_email", "rahul@example.test", DocumentType.INVOICE, "Order_Invoice.pdf", 0.95),
+            ("platform", "Flipkart", DocumentType.INVOICE, "Order_Invoice.pdf", 0.99),
+        ]
+        for fn, fv, dt, sf, conf in nike_facts:
+            nike_ledger.record_fact(FactItem(
+                field_name=fn, value=fv, source_doc_type=dt, source_filename=sf,
+                confidence=conf, raw_snippet=str(fv), verification_status=VerificationStatus.VERIFIED
+            ))
+        nike_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 5), event_type=TimelineEventType.PURCHASE, description="Ordered Nike Air Zoom Pegasus for ₹7,995 via Flipkart", source_doc_type=DocumentType.INVOICE, source_filename="Order_Invoice.pdf"))
+        nike_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 8), event_type=TimelineEventType.DELIVERY, description="Package delivered by courier", source_doc_type=DocumentType.JOB_SHEET, source_filename="Courier_Tracking.pdf"))
+        nike_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 8), event_type=TimelineEventType.DEFECT_DISCOVERED, description="Box contained counterfeit unbranded product instead of Nike", source_doc_type=DocumentType.DEFECT_PHOTO, source_filename="Unboxing_Photo.jpg"))
+        nike_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 9), event_type=TimelineEventType.COMPLAINT_RAISED, description="Return lodged within 24 hours of delivery", source_doc_type=DocumentType.EMAIL, source_filename="Customer_Complaint.eml"))
+        nike_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 10), event_type=TimelineEventType.SELLER_RESPONSE, description="Return request rejected by seller", source_doc_type=DocumentType.EMAIL, source_filename="Customer_Complaint.eml"))
+
+        case_obj = {
+            "case_id": case_id,
+            "dispute_type": DisputeType.DENIED_REFUND,
+            "title": "Nike Air Zoom Running Shoes",
+            "description": "Received counterfeit shoes instead of Nike",
+            "created_at": datetime.utcnow(),
+            "ledger": nike_ledger,
+            "timeline": nike_timeline,
+            "uploaded_files": [
+                {"filename": "Order_Invoice.pdf", "doc_type": "invoice"},
+                {"filename": "Courier_Tracking.pdf", "doc_type": "job_sheet"},
+                {"filename": "Unboxing_Photo.jpg", "doc_type": "defect_photo"},
+                {"filename": "Customer_Complaint.eml", "doc_type": "email"},
+                {"filename": "Flipkart_7Day_Return_Policy.pdf", "doc_type": "return_policy"},
+            ],
+            "uploaded_doc_types": [DocumentType.INVOICE, DocumentType.DEFECT_PHOTO, DocumentType.EMAIL, DocumentType.JOB_SHEET, DocumentType.RETURN_POLICY],
+            "report": None,
+        }
+        CASES_STORE[case_id] = case_obj
+        return case_obj
+
+    elif "SAM" in normalized_id or "SAMSUNG" in normalized_id:
+        sam_ledger = CanonicalFactLedger()
+        sam_timeline = CaseTimeline()
+        sam_facts = [
+            ("product_name", "Samsung Crystal 4K 43\" TV", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.99),
+            ("model_number", "UA43CUE60AKLXL", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.99),
+            ("brand", "Samsung", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.99),
+            ("seller_name", "Cloudtail India", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.98),
+            ("platform", "Amazon India", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.99),
+            ("purchase_date", "2026-02-01", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.99),
+            ("delivery_date", "2026-02-04", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.98),
+            ("amount_paid", 34208.20, DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.99),
+            ("defect_date", "2026-02-18", DocumentType.DEFECT_PHOTO, "sample_screen_defect.jpg", 0.97),
+            ("defect_description", "Display panel manifested vertical green line artifact across screen", DocumentType.DEFECT_PHOTO, "sample_screen_defect.jpg", 0.95),
+            ("complaint_date", "2026-02-19", DocumentType.EMAIL, "sample_support_email.txt", 0.98),
+            ("seller_response", "Warranty claim REJECTED: Technician cited alleged liquid contact", DocumentType.JOB_SHEET, "sample_service_job_sheet.txt", 0.95),
+            ("repair_amount_demanded", 19500.0, DocumentType.JOB_SHEET, "sample_service_job_sheet.txt", 0.98),
+            ("warranty_period_months", 24, DocumentType.WARRANTY_CARD, "sample_warranty_samsung.txt", 0.99),
+            ("customer_name", "Rahul Sharma", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.99),
+            ("customer_address", "Flat 402, Green Glen Layout, Bellandur, Bengaluru", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.95),
+            ("customer_phone", "+91-9876543210", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.95),
+            ("customer_email", "rahul@example.test", DocumentType.INVOICE, "sample_invoice_samsung_tv.txt", 0.95),
+        ]
+        for fn, fv, dt, sf, conf in sam_facts:
+            sam_ledger.record_fact(FactItem(
+                field_name=fn, value=fv, source_doc_type=dt, source_filename=sf,
+                confidence=conf, raw_snippet=str(fv), verification_status=VerificationStatus.VERIFIED
+            ))
+        sam_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 1), event_type=TimelineEventType.PURCHASE, description="Purchased Samsung Crystal 4K 43\" TV for ₹34,208.20 on Amazon India", source_doc_type=DocumentType.INVOICE, source_filename="sample_invoice_samsung_tv.txt"))
+        sam_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 4), event_type=TimelineEventType.DELIVERY, description="Product delivered to consumer", source_doc_type=DocumentType.INVOICE, source_filename="sample_invoice_samsung_tv.txt"))
+        sam_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 18), event_type=TimelineEventType.DEFECT_DISCOVERED, description="Display panel manifested vertical green line artifact across screen", source_doc_type=DocumentType.DEFECT_PHOTO, source_filename="sample_screen_defect.jpg"))
+        sam_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 19), event_type=TimelineEventType.COMPLAINT_RAISED, description="Formal grievance registered with brand support", source_doc_type=DocumentType.EMAIL, source_filename="sample_support_email.txt"))
+        sam_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 23), event_type=TimelineEventType.SERVICE_VISIT, description="Technician rejected warranty alleging liquid contact; demanded ₹19,500 + GST", source_doc_type=DocumentType.JOB_SHEET, source_filename="sample_service_job_sheet.txt"))
+
+        case_obj = {
+            "case_id": case_id,
+            "dispute_type": DisputeType.WARRANTY_REJECTION,
+            "title": "Samsung Crystal 4K 43\" TV",
+            "description": "Warranty claim repudiated on alleged liquid damage",
+            "created_at": datetime.utcnow(),
+            "ledger": sam_ledger,
+            "timeline": sam_timeline,
+            "uploaded_files": [
+                {"filename": "sample_invoice_samsung_tv.txt", "doc_type": "invoice"},
+                {"filename": "sample_warranty_samsung.txt", "doc_type": "warranty_card"},
+                {"filename": "sample_screen_defect.jpg", "doc_type": "defect_photo"},
+                {"filename": "sample_service_job_sheet.txt", "doc_type": "job_sheet"},
+                {"filename": "sample_support_email.txt", "doc_type": "email"},
+            ],
+            "uploaded_doc_types": [DocumentType.INVOICE, DocumentType.WARRANTY_CARD, DocumentType.DEFECT_PHOTO, DocumentType.JOB_SHEET, DocumentType.EMAIL],
+            "report": None,
+        }
+        CASES_STORE[case_id] = case_obj
+        return case_obj
+
+    elif "X4" in normalized_id or "BOAT" in normalized_id:
+        x4_ledger = CanonicalFactLedger()
+        x4_timeline = CaseTimeline()
+        x4_facts = [
+            ("product_name", "boAt Rockerz 450", DocumentType.INVOICE, "Flipkart_Invoice.pdf", 0.99),
+            ("seller_name", "RetailNet Online (Flipkart)", DocumentType.INVOICE, "Flipkart_Invoice.pdf", 0.98),
+            ("platform", "Flipkart", DocumentType.INVOICE, "Flipkart_Invoice.pdf", 0.99),
+            ("purchase_date", "2026-01-10", DocumentType.INVOICE, "Flipkart_Invoice.pdf", 0.99),
+            ("delivery_date", "2026-01-14", DocumentType.INVOICE, "Flipkart_Invoice.pdf", 0.98),
+            ("amount_paid", 1499.0, DocumentType.INVOICE, "Flipkart_Invoice.pdf", 0.99),
+            ("defect_date", "2026-01-28", DocumentType.WHATSAPP, "boAt_Support_Chat.txt", 0.95),
+            ("defect_description", "Left ear cup audio channel cut off completely", DocumentType.WHATSAPP, "boAt_Support_Chat.txt", 0.95),
+            ("complaint_date", "2026-02-01", DocumentType.WHATSAPP, "boAt_Support_Chat.txt", 0.98),
+            ("seller_response", "Refer to manufacturer warranty", DocumentType.WHATSAPP, "boAt_Support_Chat.txt", 0.95),
+            ("warranty_period_months", 12, DocumentType.WARRANTY_CARD, "boAt_Warranty_Card.pdf", 0.99),
+            ("customer_name", "Rahul Sharma", DocumentType.INVOICE, "Flipkart_Invoice.pdf", 0.99),
+            ("customer_address", "Flat 402, Green Glen Layout, Bellandur, Bengaluru", DocumentType.INVOICE, "Flipkart_Invoice.pdf", 0.95),
+            ("customer_phone", "+91-9876543210", DocumentType.INVOICE, "Flipkart_Invoice.pdf", 0.95),
+            ("customer_email", "rahul@example.test", DocumentType.INVOICE, "Flipkart_Invoice.pdf", 0.95),
+        ]
+        for fn, fv, dt, sf, conf in x4_facts:
+            x4_ledger.record_fact(FactItem(
+                field_name=fn, value=fv, source_doc_type=dt, source_filename=sf,
+                confidence=conf, raw_snippet=str(fv), verification_status=VerificationStatus.VERIFIED
+            ))
+        x4_timeline.add_event(TimelineEvent(event_date=date(2026, 1, 10), event_type=TimelineEventType.PURCHASE, description="Purchased boAt Rockerz 450 headphones via Flipkart", source_doc_type=DocumentType.INVOICE, source_filename="Flipkart_Invoice.pdf"))
+        x4_timeline.add_event(TimelineEvent(event_date=date(2026, 1, 14), event_type=TimelineEventType.DELIVERY, description="Product delivered to consumer", source_doc_type=DocumentType.INVOICE, source_filename="Flipkart_Invoice.pdf"))
+        x4_timeline.add_event(TimelineEvent(event_date=date(2026, 1, 28), event_type=TimelineEventType.DEFECT_DISCOVERED, description="Left ear cup audio channel cut off completely", source_doc_type=DocumentType.WHATSAPP, source_filename="boAt_Support_Chat.txt"))
+        x4_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 1), event_type=TimelineEventType.COMPLAINT_RAISED, description="Consumer lodged return request with seller", source_doc_type=DocumentType.WHATSAPP, source_filename="boAt_Support_Chat.txt"))
+        x4_timeline.add_event(TimelineEvent(event_date=date(2026, 2, 3), event_type=TimelineEventType.SELLER_RESPONSE, description="Seller directed consumer to brand authorized service", source_doc_type=DocumentType.WHATSAPP, source_filename="boAt_Support_Chat.txt"))
+
+        case_obj = {
+            "case_id": case_id,
+            "dispute_type": DisputeType.DEFECTIVE_PRODUCT,
+            "title": "boAt Rockerz 450",
+            "description": "Left ear cup audio channel cut off completely",
+            "created_at": datetime.utcnow(),
+            "ledger": x4_ledger,
+            "timeline": x4_timeline,
+            "uploaded_files": [
+                {"filename": "Flipkart_Invoice.pdf", "doc_type": "invoice"},
+                {"filename": "boAt_Warranty_Card.pdf", "doc_type": "warranty_card"},
+                {"filename": "boAt_Support_Chat.txt", "doc_type": "whatsapp"},
+            ],
+            "uploaded_doc_types": [DocumentType.INVOICE, DocumentType.WARRANTY_CARD, DocumentType.WHATSAPP],
+            "report": None,
+        }
+        CASES_STORE[case_id] = case_obj
+        return case_obj
+    return None
 
 
 class CreateCaseRequest(BaseModel):
@@ -541,19 +704,21 @@ def delete_file(case_id: str, filename: str):
 
 @app.post("/api/cases/{case_id}/analyze")
 def analyze_case(case_id: str):
-    if case_id not in CASES_STORE:
-        CASES_STORE[case_id] = {
-            "case_id": case_id,
-            "dispute_type": DisputeType.DEFECTIVE_PRODUCT,
-            "title": "Active Case",
-            "description": "",
-            "created_at": datetime.utcnow(),
-            "ledger": CanonicalFactLedger(),
-            "timeline": CaseTimeline(),
-            "uploaded_files": [],
-            "uploaded_doc_types": [],
-            "report": None,
-        }
+    if case_id not in CASES_STORE or len(CASES_STORE[case_id]["ledger"]._facts) == 0:
+        demo_seeded = seed_demo_case(case_id)
+        if not demo_seeded and case_id not in CASES_STORE:
+            CASES_STORE[case_id] = {
+                "case_id": case_id,
+                "dispute_type": DisputeType.DEFECTIVE_PRODUCT,
+                "title": "Active Case",
+                "description": "",
+                "created_at": datetime.utcnow(),
+                "ledger": CanonicalFactLedger(),
+                "timeline": CaseTimeline(),
+                "uploaded_files": [],
+                "uploaded_doc_types": [],
+                "report": None,
+            }
 
     case = CASES_STORE[case_id]
     ledger: CanonicalFactLedger = case["ledger"]

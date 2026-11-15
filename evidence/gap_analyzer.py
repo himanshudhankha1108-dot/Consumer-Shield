@@ -88,6 +88,12 @@ _DENIED_REFUND_REQS: List[_RequirementDef] = [
         "doc_types": [DocumentType.DEFECT_PHOTO],
         "fact_keys": [],
     },
+    {
+        "name": "Delivery & Tracking Timestamp",
+        "required": False,
+        "doc_types": [DocumentType.JOB_SHEET, DocumentType.EMAIL],
+        "fact_keys": ["delivery_date"],
+    },
 ]
 
 _WARRANTY_REJECTION_REQS: List[_RequirementDef] = [
