@@ -120,8 +120,23 @@ class CaseExtractionOutput(BaseModel):
     )
 
 
+class VisionExtractionSchema(BaseModel):
+    is_relevant_to_case: bool = Field(
+        description="True ONLY IF the image depicts a relevant consumer document (invoice, warranty) or an electronic product/appliance. False if it is a random object (e.g., umbrella, nature, selfie)."
+    )
+    detected_primary_object: str = Field(
+        description="What is the main object in this photo? (e.g., 'Umbrella', 'Laptop Screen', 'Paper Invoice')"
+    )
+    defect_description: Optional[str] = Field(
+        default=None,
+        description="Only extract if is_relevant_to_case is True. Otherwise, leave null."
+    )
+
+
 class VisionExtractionOutput(BaseModel):
     """Schema for Grok Vision extraction from product/defect photos."""
+    is_relevant_to_case: bool = True
+    detected_primary_object: Optional[str] = None
     visible_damage: Optional[str] = None
     damage_severity: Optional[str] = Field(None, description="minor, moderate, severe")
     product_identifiable: bool = False

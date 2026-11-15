@@ -162,39 +162,6 @@ def get_case_details(case_id: str):
     }
 
 
-_VISION_MODEL = None
-_VISION_PREPROCESS = None
-_VISION_CATEGORIES = None
-
-def get_vision_classifier():
-    global _VISION_MODEL, _VISION_PREPROCESS, _VISION_CATEGORIES
-    if _VISION_MODEL is None:
-        try:
-            from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
-            weights = MobileNet_V3_Small_Weights.DEFAULT
-            _VISION_MODEL = mobilenet_v3_small(weights=weights).eval()
-            _VISION_PREPROCESS = weights.transforms()
-            _VISION_CATEGORIES = weights.meta["categories"]
-        except Exception:
-            _VISION_MODEL = False
-    return _VISION_MODEL, _VISION_PREPROCESS, _VISION_CATEGORIES
-
-def classify_uploaded_image(image_path: str):
-    model, preprocess, categories = get_vision_classifier()
-    if not model:
-        return []
-    try:
-        from PIL import Image
-        import torch
-        img = Image.open(image_path).convert("RGB")
-        batch = preprocess(img).unsqueeze(0)
-        with torch.no_grad():
-            preds = model(batch).squeeze(0).softmax(0)
-        top5_prob, top5_catid = torch.topk(preds, 5)
-        return [(categories[top5_catid[i]], float(top5_prob[i].item())) for i in range(5)]
-    except Exception:
-        return []
-
 @app.post("/api/cases/{case_id}/upload")
 async def upload_evidence(
     case_id: str,
@@ -230,51 +197,21 @@ async def upload_evidence(
         is_image = parsed_doc.get("method") == "image" or suffix.lower() in [".jpg", ".jpeg", ".png", ".webp"]
 
         if is_image:
-            lower_fname = filename.lower()
-            unrelated_keywords = ["umbrella", "cat", "dog", "food", "scenery", "nature", "selfie", "flower", "wallpaper", "avatar", "meme", "random"]
-            has_unrelated_fname = any(k in lower_fname for k in unrelated_keywords)
+            from ingestion.vision_parser import analyze_product_image
 
-            predictions = classify_uploaded_image(tmp_path)
-            unrelated_vision_classes = {
-                "umbrella", "parasol", "mountain tent", "tent", "bathing cap", "crash helmet",
-                "football helmet", "bicycle helmet", "helmet", "knee pad", "sunglass", "sunglasses",
-                "wok", "frying pan", "pot", "pan", "cup", "mug", "plate", "cat", "dog", "bird",
-                "pizza", "cheeseburger", "hotdog", "ice cream", "espresso", "alp", "cliff",
-                "valley", "seashore", "flower", "daisy", "sports car", "convertible", "volcano",
-                "coral reef", "jellyfish", "balloon", "teddy", "comic book", "monarch", "mushroom",
-                "sock", "shoe", "sandal", "loafer", "boot", "backpack", "handbag", "purse", "wallet"
-            }
-            detected_mismatch = None
-            if predictions:
-                for label, prob in predictions[:3]:
-                    if prob > 0.05 and any(m in label.lower() for m in unrelated_vision_classes):
-                        detected_mismatch = (label, prob)
-                        break
+            extracted_data = analyze_product_image(tmp_path)
 
-                if not detected_mismatch:
-                    ELECTRONIC_CLASSES = {
-                        "cellular telephone", "telephone", "computer", "laptop", "desktop computer",
-                        "monitor", "screen", "television", "tv", "loudspeaker", "speaker", "microphone",
-                        "modem", "keyboard", "mouse", "radio", "ipod", "cassette", "cd player", "disc",
-                        "tape", "fan", "heater", "refrigerator", "washer", "microwave", "toaster",
-                        "vacuum", "drier", "iron", "dishwasher", "switch", "plug", "socket", "drill", "remote"
-                    }
-                    has_any_electronic = any(any(e in label.lower() for e in ELECTRONIC_CLASSES) for label, _ in predictions)
-                    if not has_any_electronic and predictions[0][1] > 0.10:
-                        detected_mismatch = predictions[0]
-
-            has_unrelated = has_unrelated_fname or (detected_mismatch is not None)
-
-            if has_unrelated:
+            if not extracted_data.is_relevant_to_case:
                 doc_type = DocumentType.OTHER
-                desc = f"AI Vision detected '{detected_mismatch[0]}' ({detected_mismatch[1]*100:.1f}% confidence)" if detected_mismatch else f"'{filename}' does not match claimed dispute product"
+                detected_obj = extracted_data.detected_primary_object or "Unrelated Object"
+                red_flag_val = f"Red Flag: Irrelevant Image Detected ({detected_obj})"
                 mismatch_fact = FactItem(
                     field_name="visual_evidence_mismatch",
-                    value=f"Contradictory Visual Evidence: {desc}",
+                    value=red_flag_val,
                     source_doc_type=DocumentType.OTHER,
                     source_filename=filename,
-                    confidence=0.15,
-                    raw_snippet=f"Visual asset flagged by AI Vision for entity mismatch. Artifact lacks correlation to consumer hardware dispute.",
+                    confidence=0.10,
+                    raw_snippet=f"Forensic visual analysis confirmed non-consumer artifact '{detected_obj}'. Excluded from Case Readiness Dossier.",
                     verification_status=VerificationStatus.CONFLICTING,
                 )
                 case["ledger"].record_fact(mismatch_fact)
@@ -282,13 +219,15 @@ async def upload_evidence(
                 is_relevant = False
             else:
                 doc_type = DocumentType.DEFECT_PHOTO
+                primary_obj = extracted_data.detected_primary_object or "Consumer Hardware"
+                desc = extracted_data.defect_description or "Physical damage or defect verified via visual inspection"
                 photo_fact = FactItem(
                     field_name="defect_photo",
-                    value=f"Photographic Defect Evidence ({filename})",
+                    value=f"Photographic Defect Evidence: {primary_obj} ({desc})",
                     source_doc_type=DocumentType.DEFECT_PHOTO,
                     source_filename=filename,
-                    confidence=0.91,
-                    raw_snippet="Visual evidence artifact ingested into Case Readiness Dossier as physical damage proof.",
+                    confidence=0.95,
+                    raw_snippet=f"Visual evidence verified by forensic analysis: {desc}",
                     verification_status=VerificationStatus.VERIFIED,
                 )
                 case["ledger"].record_fact(photo_fact)
