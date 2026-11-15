@@ -318,10 +318,24 @@ function updateHeaderStats() {
   if (statWarranty) statWarranty.textContent = CurrentCase.warrantyText;
   if (statFiles) statFiles.textContent = CurrentCase.filesCountText;
   if (statScoreText) statScoreText.textContent = `${CurrentCase.score} / 100`;
+  renderConflictBanner();
 }
 
 function renderConflictBanner() {
   const container = document.getElementById("conflict-banner-container");
+  const conflictBadge = document.getElementById("conflict-badge");
+  const conflictCount = (CurrentCase.conflicts || []).length;
+
+  if (conflictBadge) {
+    if (conflictCount > 0) {
+      conflictBadge.style.display = "inline-flex";
+      conflictBadge.textContent = `${conflictCount} Conflict${conflictCount > 1 ? "s" : ""}`;
+      conflictBadge.className = "ml-1.5 px-1.5 py-0.2 rounded-full text-[10px] bg-rose-500/20 text-rose-300 border border-rose-500/30";
+    } else {
+      conflictBadge.style.display = "none";
+    }
+  }
+
   if (!container) return;
 
   if (CurrentCase.conflicts && CurrentCase.conflicts.length > 0) {

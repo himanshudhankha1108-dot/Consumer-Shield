@@ -162,6 +162,39 @@ def get_case_details(case_id: str):
     }
 
 
+_VISION_MODEL = None
+_VISION_PREPROCESS = None
+_VISION_CATEGORIES = None
+
+def get_vision_classifier():
+    global _VISION_MODEL, _VISION_PREPROCESS, _VISION_CATEGORIES
+    if _VISION_MODEL is None:
+        try:
+            from torchvision.models import mobilenet_v3_small, MobileNet_V3_Small_Weights
+            weights = MobileNet_V3_Small_Weights.DEFAULT
+            _VISION_MODEL = mobilenet_v3_small(weights=weights).eval()
+            _VISION_PREPROCESS = weights.transforms()
+            _VISION_CATEGORIES = weights.meta["categories"]
+        except Exception:
+            _VISION_MODEL = False
+    return _VISION_MODEL, _VISION_PREPROCESS, _VISION_CATEGORIES
+
+def classify_uploaded_image(image_path: str):
+    model, preprocess, categories = get_vision_classifier()
+    if not model:
+        return []
+    try:
+        from PIL import Image
+        import torch
+        img = Image.open(image_path).convert("RGB")
+        batch = preprocess(img).unsqueeze(0)
+        with torch.no_grad():
+            preds = model(batch).squeeze(0).softmax(0)
+        top5_prob, top5_catid = torch.topk(preds, 5)
+        return [(categories[top5_catid[i]], float(top5_prob[i].item())) for i in range(5)]
+    except Exception:
+        return []
+
 @app.post("/api/cases/{case_id}/upload")
 async def upload_evidence(
     case_id: str,
@@ -199,25 +232,34 @@ async def upload_evidence(
         if is_image:
             lower_fname = filename.lower()
             unrelated_keywords = ["umbrella", "cat", "dog", "food", "scenery", "nature", "selfie", "flower", "wallpaper", "avatar", "meme", "random"]
-            has_unrelated = any(k in lower_fname for k in unrelated_keywords)
+            has_unrelated_fname = any(k in lower_fname for k in unrelated_keywords)
 
-            resolved_facts = case["ledger"].resolved_facts
-            claimed_product = str(resolved_facts.get("product_name", "")).lower()
-            claimed_category = str(resolved_facts.get("product_category", "")).lower()
+            predictions = classify_uploaded_image(tmp_path)
+            unrelated_vision_classes = {
+                "umbrella", "parasol", "mountain tent", "bathing cap", "cat", "dog", "bird", "pizza",
+                "cheeseburger", "hotdog", "ice cream", "espresso", "alp", "cliff", "valley", "seashore",
+                "flower", "daisy", "sports car", "convertible", "volcano", "coral reef", "jellyfish",
+                "balloon", "teddy", "comic book", "monarch", "mushroom"
+            }
+            detected_mismatch = None
+            if predictions:
+                for label, prob in predictions:
+                    if prob > 0.15 and any(m in label.lower() for m in unrelated_vision_classes):
+                        detected_mismatch = (label, prob)
+                        break
 
-            defect_keywords = ["defect", "damage", "broken", "crack", "display", "screen", "fault", "hardware", "leak", "panel", "flicker", "scratch", "dent", "fail", "proof"]
-            has_defect_kw = any(k in lower_fname for k in defect_keywords)
-            matches_product = (claimed_product and any(part in lower_fname for part in claimed_product.split() if len(part) > 3)) or (claimed_category and claimed_category in lower_fname)
+            has_unrelated = has_unrelated_fname or (detected_mismatch is not None)
 
             if has_unrelated:
                 doc_type = DocumentType.OTHER
+                desc = f"AI Vision detected '{detected_mismatch[0]}' ({detected_mismatch[1]*100:.1f}% confidence)" if detected_mismatch else f"'{filename}' does not match claimed dispute product"
                 mismatch_fact = FactItem(
                     field_name="visual_evidence_mismatch",
-                    value=f"Contradictory Visual Evidence: '{filename}' does not match claimed dispute product",
+                    value=f"Contradictory Visual Evidence: {desc}",
                     source_doc_type=DocumentType.OTHER,
                     source_filename=filename,
                     confidence=0.15,
-                    raw_snippet=f"Visual asset flagged for entity mismatch. Uploaded artifact lacks correlation to dispute.",
+                    raw_snippet=f"Visual asset flagged by AI Vision for entity mismatch. Artifact lacks correlation to consumer hardware dispute.",
                     verification_status=VerificationStatus.CONFLICTING,
                 )
                 case["ledger"].record_fact(mismatch_fact)
