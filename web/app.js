@@ -392,12 +392,14 @@ function renderConflictBanner() {
             const resData = await resp.json();
             if (resData.all_facts) CurrentCase.facts = resData.all_facts;
             if (resData.conflicts) CurrentCase.conflicts = resData.conflicts;
+            if (resData.canonical_facts) CurrentCase.canonical_facts = resData.canonical_facts;
+            if (resData.resolved_facts) CurrentCase.resolved_facts = resData.resolved_facts;
           }
         } catch (e) {
           console.warn("Backend conflict resolve warning:", e);
         }
 
-        CurrentCase.facts = CurrentCase.facts.filter(f => !(f.field === field && f.value !== chosenVal));
+        CurrentCase.facts = (CurrentCase.facts || []).filter(f => !(f.field === field && f.value !== chosenVal));
         for (const f of CurrentCase.facts) {
           if (f.field === field) {
             f.status = "verified";
@@ -405,7 +407,17 @@ function renderConflictBanner() {
           }
         }
 
-        CurrentCase.conflicts = CurrentCase.conflicts.filter(c => c.field !== field);
+        CurrentCase.conflicts = (CurrentCase.conflicts || []).filter(c => c.field !== field);
+
+        if (CurrentCase.canonical_facts) {
+          for (const cf of CurrentCase.canonical_facts) {
+            if (cf.field === field) {
+              cf.value = chosenVal;
+              cf.status = "verified";
+              cf.confidence = 1.0;
+            }
+          }
+        }
 
         if (field === "product_name") CurrentCase.product = chosenVal;
         if (field === "seller_name") CurrentCase.seller = chosenVal;
@@ -514,6 +526,17 @@ window.focusConflict = focusConflict;
 
 function getCanonicalFacts(caseObj) {
   if (caseObj.canonical_facts && caseObj.canonical_facts.length > 0) {
+    const activeConflicts = new Set((caseObj.conflicts || []).map(c => c.field));
+    for (const cf of caseObj.canonical_facts) {
+      if (activeConflicts.has(cf.field)) {
+        cf.status = "conflicting";
+      } else if (cf.status === "conflicting") {
+        cf.status = "verified";
+      }
+      if (caseObj.resolved_facts && caseObj.resolved_facts[cf.field]) {
+        cf.value = String(caseObj.resolved_facts[cf.field]);
+      }
+    }
     return caseObj.canonical_facts;
   }
   const facts = caseObj.facts || [];

@@ -236,17 +236,32 @@ async def upload_evidence(
 
             predictions = classify_uploaded_image(tmp_path)
             unrelated_vision_classes = {
-                "umbrella", "parasol", "mountain tent", "bathing cap", "cat", "dog", "bird", "pizza",
-                "cheeseburger", "hotdog", "ice cream", "espresso", "alp", "cliff", "valley", "seashore",
-                "flower", "daisy", "sports car", "convertible", "volcano", "coral reef", "jellyfish",
-                "balloon", "teddy", "comic book", "monarch", "mushroom"
+                "umbrella", "parasol", "mountain tent", "tent", "bathing cap", "crash helmet",
+                "football helmet", "bicycle helmet", "helmet", "knee pad", "sunglass", "sunglasses",
+                "wok", "frying pan", "pot", "pan", "cup", "mug", "plate", "cat", "dog", "bird",
+                "pizza", "cheeseburger", "hotdog", "ice cream", "espresso", "alp", "cliff",
+                "valley", "seashore", "flower", "daisy", "sports car", "convertible", "volcano",
+                "coral reef", "jellyfish", "balloon", "teddy", "comic book", "monarch", "mushroom",
+                "sock", "shoe", "sandal", "loafer", "boot", "backpack", "handbag", "purse", "wallet"
             }
             detected_mismatch = None
             if predictions:
-                for label, prob in predictions:
-                    if prob > 0.15 and any(m in label.lower() for m in unrelated_vision_classes):
+                for label, prob in predictions[:3]:
+                    if prob > 0.05 and any(m in label.lower() for m in unrelated_vision_classes):
                         detected_mismatch = (label, prob)
                         break
+
+                if not detected_mismatch:
+                    ELECTRONIC_CLASSES = {
+                        "cellular telephone", "telephone", "computer", "laptop", "desktop computer",
+                        "monitor", "screen", "television", "tv", "loudspeaker", "speaker", "microphone",
+                        "modem", "keyboard", "mouse", "radio", "ipod", "cassette", "cd player", "disc",
+                        "tape", "fan", "heater", "refrigerator", "washer", "microwave", "toaster",
+                        "vacuum", "drier", "iron", "dishwasher", "switch", "plug", "socket", "drill", "remote"
+                    }
+                    has_any_electronic = any(any(e in label.lower() for e in ELECTRONIC_CLASSES) for label, _ in predictions)
+                    if not has_any_electronic and predictions[0][1] > 0.10:
+                        detected_mismatch = predictions[0]
 
             has_unrelated = has_unrelated_fname or (detected_mismatch is not None)
 
